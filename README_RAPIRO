@@ -1,0 +1,60 @@
+Rapiro Controller README
+
+■ファイル構成
+・adjust.tgz を展開してください。
+  rapiro_adjust.py
+  getch.py
+  choreo/test
+  choreo/test1
+  choreo/test2
+・従来の adjust.py の替わりに rapiro_adjust.py を使ってください。
+・従来 adjust.py に内包していた _Getch クラスは getch.py として分離しました。
+・choreoディレクトリには、コマンド列で記述されるコレオグラフィスクリプトを置きます。
+
+■コマンド
+・コマンド引数の仕様が変更になっています。
+・第1引数にはコレオグラフィスクリプトを指定することもできます。
+  $ python rapiro_adjust.py [ choreo ] [ dump ]
+
+■キー仕様
+・コントローラのキー仕様が変更・拡張されています。
+  (当方のキーボードが全てUSのため、,./\ を hjkl にしました。ご理解ください)
+  Channel Settings:
+    0:foot_p_l, 1:foot_y_l, 2:hand_l, 3:shld_p_l, 4:shld_r_l, 5:waist
+    6:head, 7:shld_r_r, 8:shld_p_r, 9:hand_r, 10:foot_y_r, 11:foot_p_r
+    12:red, 13:green, 14:blue
+  Commands:
+    h:-10, j:-1, k:+1, l:+10, g:full swing
+    m:set center, x:set max pos, n:set min pos
+    c:load choreography file, i:revert to tty (use in file),
+    p:simultaneous move of multiple channels, H:help, q:quit
+    
+・コントローラのキー仕様の拡張
+  c: c filename
+     filenameはchoreoディレクトリ配下のコレオグラフィスクリプトファイル名を指定します。
+     このコレオグラフィスクリプトには、上記コマンド文字の並びを指定することができます。
+     また、ファイルの呼び出しは、cコマンドで任意の入れ子にすることができます。
+     (部分処理をスクリプトにしておき、それらを束ねて実行することができます)
+  i: コレオグラフィスクリプトの中に記述しておくことで、ttyのインタラクティブモードに
+     移行することができます。インタラクティブモードの終了コマンドである q を入力すると、
+     元のコレオグラフィスクリプトの残りの部分の実行に戻ります。
+  p: p [-s msec] ch1:pos1 ch2:pos2 ...
+     時間msecで、複数のchに対して同時並行でそれぞれの指定位置への移動を試みます。
+  q: インタラクティブモードを終了します。^C も同様の動作になります。   
+  
+■Getchクラス(getch.py)
+・ファイル読み込みの入れ子機能を汎用部品化してありますので、別用途でも使うことができます。
+・使い方
+  from getch import Getch
+  getch = Getch(path=path) # ← インスタンス化(従来の上位互換)
+                           #   Getch()ならtty、Getch(filename)ならファイルから
+  c = getch()              # ← １文字読み込み(従来通り)
+                           #   ただしファイルモードの場合には、EOFでNoneを返す
+  verbose = not getch.mode # ← 現在のモード（ttyならNone、ファイルならファイル名)
+                           #   この例は、ttyならverboseをONにするという意図
+  getch.close()            # ← 現在のtty/ファイルをクローズする
+                           #   入れ子になっていて、親tty/ファイルに戻れる時はTrue
+                           #   トップレベルならFalseを返す
+  getch.push(path)	   # ← 新しいファイルで入れ子にする場合、pathにファイル名を指定
+                           #   ttyをかぶせて入れ子にする場合、Noneを指定
+                           #   続く getch() 呼び出しでは子から読み出す
