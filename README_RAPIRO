@@ -1,3 +1,4 @@
+
 Rapiro Controller README
 
 ■ファイル構成
@@ -61,3 +62,11 @@ Rapiro Controller README
   getch.push(path)	   # ← 新しいファイルで入れ子にする場合、pathにファイル名を指定
                            #   ttyをかぶせて入れ子にする場合、Noneを指定
                            #   続く getch() 呼び出しでは子から読み出す
+
+■ベーシックなChoreo
+Rapiro組込みのベーシックなChoreoデータ（forward, backなど）をコマンドファイルとして
+インポートするコマンドを作りました。
+
+./tools/init_choreo.py
+
+./tools/choreo_data.pyを読み込み、./choreoの下にコマンドファイルを生成します。
