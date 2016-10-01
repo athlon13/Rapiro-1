@@ -31,9 +31,6 @@ import Adafruit_PCA9685
 # Getch
 from getch import Getch
 
-# Choreography data
-from choreo_data import ChoreoData
-
 ############################################################
 # constants
 
@@ -78,6 +75,8 @@ for i in range(0,len(C_PARTS_LIST)):
 
 C_CHOREO_DIR = 'choreo'
 
+C_MINIMUM_SLEEP = 0.001
+
 ############################################################
 # Helper function to make setting a servo pulse width simpler.
 
@@ -93,14 +92,11 @@ def set_servo_pulse(channel, pulse, verbose=True):
 
 # abs: absolute position (pos[ch])
 # rel: relative position from absolute posture (-10,.-1,+1,+10)
-def unitMove(ch, pos, abs=None, rel=0,verbose=False):
-    MAX_POS = 255
+def unitMove(ch, pos, abs=None, rel=0, verbose=False):
     if abs is None: abs = pos[ch]
     abs += rel
-    if abs < 0:       abs = 0
-    if abs > MAX_POS: abs = MAX_POS
-    pos[ch] = int(abs)
-    pwm.set_pwm(ch, 0, int(abs))
+    pos[ch] = abs
+    pwm.set_pwm(ch, 0, abs)
     if verbose: print('move ch:'+str(ch)+" "+str(abs))
     return abs
 
@@ -122,42 +118,64 @@ def fullSwing(ch, pos, *plist, **opts):
         smoothMove(ch, pos, p, verbose=verbose)
     return 0
 
-def multiMove(curr, pmulti, period=0.0, verbose=False):
-    unitMoveTime = 0.001 # to be adjusted
-    threshold    = 5.0   # to be adjusted
-    period = period / 10.0
-    delta = []; lastMove = []; moveCount = []
-    for d in range(0,len(curr)):
-        delta.append(0.0); lastMove.append(0); moveCount.append(0)
+def multiMove(pos, pmulti, period, sleep=0.01, verbose=False):
+    if not period:
+        for ch,p in pmulti:
+            unitMove(ch, pos, p, verbose=verbose)
+        time.sleep(sleep)
+    else:
+        basestep = int(period/(sleep*1000))
+        chstep = 1 #servo_max
+        totalstep = 0
+        for xp in pmulti:
+            # xp: [ch, to_pos] + [cur_pos, delta, round_error]
+            # cur pos: xp[2]
+            xp.append(pos[xp[0]])
+            # delta: xp[3]
+            d = xp[1] - xp[2]
+            xp.append(d)
+            chstep = max(abs(d), chstep)
+            totalstep += abs(d)
+            # round error: xp[4]
+            xp.append(0.001*(1 if xp[3]>=0 else -1))
+        # ここでステップ数を確定する。現在は稼働chの平均動作回数としている
+        # 全chの最大移動幅とベース回数(上記)の小さい方とするなどの変更が可能
+        #step = min(step, chstep)
+        step = int(totalstep/len(pmulti))
 
-    MAX_STEP = 100
-    step = int(float(period)/(unitMoveTime*len(curr))) + 1
-    if step > MAX_STEP: step = MAX_STEP
+        # 与えられた達成目標時間(-s period指定)に対して上記で定めたステップ数を回す
+        # １ステップ毎に処理時間を実測し、残り時間で残りステップをこなせるように
+        # 毎回sleep値を補正
+        period /= 1000.0
+        print('period=%.3f sec, step=%d'%(period,step))
+        #verbose = True
+        for s in range(step-1,-1,-1):
+            # 最新の１ステップの処理時間を計測しておく
+            utimer = time.time()
+            for xp in pmulti:
+                xp[2] += xp[3] / step
+                unitMove(xp[0], pos, int(round(xp[2]+xp[4])), verbose=verbose)
+            curr = time.time() - utimer
+            # 予定されたステップ数を終了したらループから抜ける
+            if s==0:
+                #print('Execution time error: %.3f sec'%period)
+                break
 
-    for i in range(0, len(curr)):
-        delta[i] = (pmulti[i]-curr[i])/step
-        lastMove[i] = 0
-
-    for s in range(0, step):
-        moveCount = 0
-        for ch in range(0, len(curr)):
-            d = delta[ch]*float((s-lastMove[ch]))
-            if abs(d) > threshold:
-                unitMove(ch, curr, None, d, verbose=verbose)
-                lastMove[ch] = s
-                moveCount += 1
-        if period/step - unitMoveTime*moveCount > 0.0:
-                time.sleep(period/step - unitMoveTime*moveCount)
-                
-    return curr
-    
-def choreoMove(currPos, choreo, verbose=False):
-    print "choreoMove:"
-    for nextPos in choreo:
-        print "Period: " + str(nextPos['period']) + "  Current:" + str(currPos)
-        curr = multiMove(currPos, nextPos['pos'], nextPos['period'], verbose)
-    print "End   :" + str(currPos)
-    return curr
+            period -= curr
+            if period > 0:
+                # 残り時間が正の場合、残り時間と残りステップ数からsleep可能な時間を計算
+                unit = period / s
+                #print('step=%d, period=%.3f, curr=%.3f, unit=%.3f'%(s,period,curr,unit))
+                if unit > curr:
+                    sleep = unit - curr
+                    period -= sleep
+                    time.sleep(sleep)
+                else:
+                    # 可能sleep時間が負になってしまう場合は、最小sleepして処理を継続
+                    time.sleep(C_MINIMUM_SLEEP)
+            else:
+                # 残り時間が負(達成目標時間を超過)の場合は、最小sleepして処理を継続
+                time.sleep(C_MINIMUM_SLEEP)
 
 def printhelp(verbose=True):
     if not verbose:
@@ -171,7 +189,7 @@ def printhelp(verbose=True):
     print('  h:-10, j:-1, k:+1, l:+10, g:full swing')
     print('  m:set center, x:set max pos, n:set min pos')
     print('  c:load choreography file, i:revert to tty (use in file)')
-    print('  p:simultaneous move of multiple channels, H:help, q:quit')
+    print('  p:simultaneous move of mult-channels, t[se]:timer, H:help, q:quit')
     print('')
 
 ############################################################
@@ -231,6 +249,20 @@ def mainproc(path=None,dumpfile=None):
                     ch = 1
             if verbose: print("set current channel=" + str(ch))
             continue
+        
+        # measure elapsed time and print in seconds between 'ts' and 'te'
+        if c == 't':
+            c2 = getch()
+            if c2 == 's':
+                if verbose: sys.stdout.write('ts')
+                title = getch(line=True).strip()
+                if verbose: print(title)
+                timer = time.time()
+            elif c2 == 'e':
+                print('Elapsed time: %s %.3f sec'%(title,time.time()-timer))
+            else:
+                pass
+            continue
 
         # h: move-10, j: move-1, k: move+1, l: move+10
         if   c == 'h':
@@ -262,14 +294,12 @@ def mainproc(path=None,dumpfile=None):
         # c: dance with specified choreography file (nestable)
         #   c filename
         elif c == 'c':
-            if verbose: sys.stdout.write('type choreography name: ')
+            if verbose: sys.stdout.write('type choreography file: ')
             choreo = getch(line=True)
             if verbose: print('')
-            #choreo = re.sub(r'[^-.\w]','',choreo.strip())
-            #getch.push(os.path.join(C_CHOREO_DIR,choreo))
-            name = choreo.strip()
-            pos  = choreoMove(pos, ChoreoData[name])
-            
+            choreo = re.sub(r'[^-.\w]','',choreo.strip())
+            getch.push(os.path.join(C_CHOREO_DIR,choreo))
+
         # p: move posture simultaneously over specified multiple channels
         #   p [-s 1000] 1:100 2:200 ... (set 'ch:pos' pairs, '=' also allowed)
         elif c == 'p':
@@ -286,7 +316,7 @@ def mainproc(path=None,dumpfile=None):
             pmulti = map(lambda x:map(int,re.split(r'[=:]',x)),
                          re.split(r' +',param.strip()))
             multiMove(pos, pmulti, period, verbose=verbose)
-            
+
         # i: change command control to tty (use in choreo files)
         elif c == 'i':
             getch.push()
