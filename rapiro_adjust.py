@@ -31,6 +31,9 @@ import Adafruit_PCA9685
 # Getch
 from getch import Getch
 
+# Choreography data
+from choreo_data import ChoreoData
+
 ############################################################
 # constants
 
@@ -90,11 +93,14 @@ def set_servo_pulse(channel, pulse, verbose=True):
 
 # abs: absolute position (pos[ch])
 # rel: relative position from absolute posture (-10,.-1,+1,+10)
-def unitMove(ch, pos, abs=None, rel=0, verbose=False):
+def unitMove(ch, pos, abs=None, rel=0,verbose=False):
+    MAX_POS = 255
     if abs is None: abs = pos[ch]
     abs += rel
-    pos[ch] = abs
-    pwm.set_pwm(ch, 0, abs)
+    if abs < 0:       abs = 0
+    if abs > MAX_POS: abs = MAX_POS
+    pos[ch] = int(abs)
+    pwm.set_pwm(ch, 0, int(abs))
     if verbose: print('move ch:'+str(ch)+" "+str(abs))
     return abs
 
@@ -116,26 +122,42 @@ def fullSwing(ch, pos, *plist, **opts):
         smoothMove(ch, pos, p, verbose=verbose)
     return 0
 
-def multiMove(pos, pmulti, period, sleep=0.01, verbose=False):
-    if not period:
-        for ch,p in pmulti:
-            unitMove(ch, pos, p, verbose=verbose)
-        time.sleep(sleep)
-    else:
-        step = int(period/(sleep*1000))
-        for xp in pmulti:
-            # xp: [ch, to_pos] + [cur_pos, delta, round_error]
-            # cur pos: xp[2]
-            xp.append(pos[xp[0]])
-            # delta: xp[3]
-            xp.append((xp[1]-xp[2]) / step)
-            # round error: xp[4]
-            xp.append(0.001*(1 if xp[3]>=0 else -1))
-        for s in range(0,step):
-            for xp in pmulti:
-                xp[2] += xp[3]
-                unitMove(xp[0], pos, int(round(xp[2]+xp[4])), verbose=verbose)
-            time.sleep(sleep)
+def multiMove(curr, pmulti, period=0.0, verbose=False):
+    unitMoveTime = 0.001 # to be adjusted
+    threshold    = 5.0   # to be adjusted
+    period = period / 10.0
+    delta = []; lastMove = []; moveCount = []
+    for d in range(0,len(curr)):
+        delta.append(0.0); lastMove.append(0); moveCount.append(0)
+
+    MAX_STEP = 100
+    step = int(float(period)/(unitMoveTime*len(curr))) + 1
+    if step > MAX_STEP: step = MAX_STEP
+
+    for i in range(0, len(curr)):
+        delta[i] = (pmulti[i]-curr[i])/step
+        lastMove[i] = 0
+
+    for s in range(0, step):
+        moveCount = 0
+        for ch in range(0, len(curr)):
+            d = delta[ch]*float((s-lastMove[ch]))
+            if abs(d) > threshold:
+                unitMove(ch, curr, None, d, verbose=verbose)
+                lastMove[ch] = s
+                moveCount += 1
+        if period/step - unitMoveTime*moveCount > 0.0:
+                time.sleep(period/step - unitMoveTime*moveCount)
+                
+    return curr
+    
+def choreoMove(currPos, choreo, verbose=False):
+    print "choreoMove:"
+    for nextPos in choreo:
+        print "Period: " + str(nextPos['period']) + "  Current:" + str(currPos)
+        curr = multiMove(currPos, nextPos['pos'], nextPos['period'], verbose)
+    print "End   :" + str(currPos)
+    return curr
 
 def printhelp(verbose=True):
     if not verbose:
@@ -240,12 +262,14 @@ def mainproc(path=None,dumpfile=None):
         # c: dance with specified choreography file (nestable)
         #   c filename
         elif c == 'c':
-            if verbose: sys.stdout.write('type choreography file: ')
+            if verbose: sys.stdout.write('type choreography name: ')
             choreo = getch(line=True)
             if verbose: print('')
-            choreo = re.sub(r'[^-.\w]','',choreo.strip())
-            getch.push(os.path.join(C_CHOREO_DIR,choreo))
-
+            #choreo = re.sub(r'[^-.\w]','',choreo.strip())
+            #getch.push(os.path.join(C_CHOREO_DIR,choreo))
+            name = choreo.strip()
+            pos  = choreoMove(pos, ChoreoData[name])
+            
         # p: move posture simultaneously over specified multiple channels
         #   p [-s 1000] 1:100 2:200 ... (set 'ch:pos' pairs, '=' also allowed)
         elif c == 'p':
@@ -262,7 +286,7 @@ def mainproc(path=None,dumpfile=None):
             pmulti = map(lambda x:map(int,re.split(r'[=:]',x)),
                          re.split(r' +',param.strip()))
             multiMove(pos, pmulti, period, verbose=verbose)
-
+            
         # i: change command control to tty (use in choreo files)
         elif c == 'i':
             getch.push()
