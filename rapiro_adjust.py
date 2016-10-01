@@ -88,25 +88,54 @@ def set_servo_pulse(channel, pulse, verbose=True):
     pulse //= pulse_length
     pwm.set_pwm(channel, 0, pulse)
 
-def unitMove(ch, p, verbose=False):
-    pwm.set_pwm(ch, 0, p)
-    if verbose: print('move ch:'+str(ch)+" "+str(p))
-    return p
+# abs: absolute position (pos[ch])
+# rel: relative position from absolute posture (-10,.-1,+1,+10)
+def unitMove(ch, pos, abs=None, rel=0, verbose=False):
+    if abs is None: abs = pos[ch]
+    abs += rel
+    pos[ch] = abs
+    pwm.set_pwm(ch, 0, abs)
+    if verbose: print('move ch:'+str(ch)+" "+str(abs))
+    return abs
 
-def smoothMove(ch, from_pos, to_pos, sleep=0.01, verbose=False):
+def smoothMove(ch, pos, to_pos, sleep=0.01, verbose=False):
+    from_pos = pos[ch]
     delta = 1 if from_pos < to_pos else -1
-    for p in range(from_pos, to_pos+delta, delta):
-        unitMove(ch, p)
+    for p in range(from_pos+delta, to_pos+delta, delta):
+        unitMove(ch, pos, p)
         time.sleep(sleep)
     if verbose: print('smooth ch:'+str(ch)+" "+str(from_pos)+"=>"+str(to_pos))
     return to_pos - from_pos
 
-def fullSwing(ch, cur, min, max, verbose=False):
-    if verbose: print('swing ch:'+str(ch)+" "+str(cur)+"=>"+str(min)+"=>"+str(max)+"=>"+str(cur))
-    smoothMove(ch, cur, min, verbose=verbose)
-    smoothMove(ch, min, max, verbose=verbose)
-    smoothMove(ch, max, cur, verbose=verbose)
+# plist: list of (next-pos, next-next-pos, ... last-pos)
+def fullSwing(ch, pos, *plist, **opts):
+    verbose = opts.get('verbose',None)
+    cur = pos[ch]
+    if verbose: print('swing ch:'+str(ch)+" "+str(cur)+"=>"+str(plist))
+    for p in plist:
+        smoothMove(ch, pos, p, verbose=verbose)
     return 0
+
+def multiMove(pos, pmulti, period, sleep=0.01, verbose=False):
+    if not period:
+        for ch,p in pmulti:
+            unitMove(ch, pos, p, verbose=verbose)
+        time.sleep(sleep)
+    else:
+        step = int(period/(sleep*1000))
+        for xp in pmulti:
+            # xp: [ch, to_pos] + [cur_pos, delta, round_error]
+            # cur pos: xp[2]
+            xp.append(pos[xp[0]])
+            # delta: xp[3]
+            xp.append((xp[1]-xp[2]) / step)
+            # round error: xp[4]
+            xp.append(0.001*(1 if xp[3]>=0 else -1))
+        for s in range(0,step):
+            for xp in pmulti:
+                xp[2] += xp[3]
+                unitMove(xp[0], pos, int(round(xp[2]+xp[4])), verbose=verbose)
+            time.sleep(sleep)
 
 def printhelp(verbose=True):
     if not verbose:
@@ -119,7 +148,8 @@ def printhelp(verbose=True):
     print('Commands:')
     print('  h:-10, j:-1, k:+1, l:+10, g:full swing')
     print('  m:set center, x:set max pos, n:set min pos')
-    print('  c:load choreo file, i:revert to tty (use in file), H:help, q:quit')
+    print('  c:load choreography file, i:revert to tty (use in file)')
+    print('  p:simultaneous move of multiple channels, H:help, q:quit')
     print('')
 
 ############################################################
@@ -147,8 +177,9 @@ def mainproc(path=None,dumpfile=None):
     max   = servo["max"]
     min   = servo["min"]
     
+    # set initial posture positions
     for ch in range(0, len(pos)):
-        unitMove(ch, pos[ch])
+        unitMove(ch, pos)
 
     # File or tty for input commands
     getch = Getch(path=path)
@@ -181,23 +212,18 @@ def mainproc(path=None,dumpfile=None):
 
         # h: move-10, j: move-1, k: move+1, l: move+10
         if   c == 'h':
-            pos[ch] -= 10
-            unitMove(ch, pos[ch], verbose=True)
+            unitMove(ch, pos, rel=-10, verbose=True)
         elif c == 'j':
-            pos[ch] -= 1
-            unitMove(ch, pos[ch], verbose=True)
+            unitMove(ch, pos, rel=-1, verbose=True)
         elif c == 'k':
-            pos[ch] += 1
-            unitMove(ch, pos[ch], verbose=True)
+            unitMove(ch, pos, rel=1, verbose=True)
         elif c == 'l':
-            pos[ch] +=10
-            unitMove(ch, pos[ch], verbose=True)
+            unitMove(ch, pos, rel=10, verbose=True)
         # m: force all parts to center posture
         elif c == 'm':
             mid = (servo_min+servo_max)//2
-            for i in range(0, 16):
-                unitMove(i, mid)
-                pos[i] = mid
+            for i in range(0, len(pos)):
+                unitMove(i, pos, mid)
             if verbose: print("set all channels to " + str(mid))
         # x: set current posture as maximum
         elif c == 'x':
@@ -209,7 +235,7 @@ def mainproc(path=None,dumpfile=None):
             if verbose: print("set min pos=" + str(pos[ch]))
         # g: move cur->min->max->cur posture
         elif c == 'g':
-            fullSwing(ch, pos[ch], min[ch], max[ch], verbose=True)
+            fullSwing(ch, pos, min[ch], max[ch], pos[ch], verbose=True)
 
         # c: dance with specified choreography file (nestable)
         #   c filename
@@ -220,16 +246,22 @@ def mainproc(path=None,dumpfile=None):
             choreo = re.sub(r'[^-.\w]','',choreo.strip())
             getch.push(os.path.join(C_CHOREO_DIR,choreo))
 
-        # p: make posture simultaneously with multiple channel settings
-        #   p 1:100 2:200 3:300 ... (set 'ch:pos' pairs, '=' also allowed)
+        # p: move posture simultaneously over specified multiple channels
+        #   p [-s 1000] 1:100 2:200 ... (set 'ch:pos' pairs, '=' also allowed)
         elif c == 'p':
             if verbose: sys.stdout.write('type channel settings: ')
-            posture = getch(line=True)
+            param = getch(line=True)
             if verbose: print('')
-            plist = map(lambda x:map(int,re.split(r'[=:]',x)),
-                        re.split(r' +',posture.strip()))
-            for ch,p in plist:
-                unitMove(ch, p, verbose=True)
+            param = param.strip()
+            m = re.match(r'-s *(\S+) +',param)
+            period = None
+            if m:
+                s = m.group(1)
+                period = int(s) if re.match(r'\d+$',s) else 0
+                param = param[m.end():]
+            pmulti = map(lambda x:map(int,re.split(r'[=:]',x)),
+                         re.split(r' +',param.strip()))
+            multiMove(pos, pmulti, period, verbose=verbose)
 
         # i: change command control to tty (use in choreo files)
         elif c == 'i':
