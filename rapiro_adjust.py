@@ -31,6 +31,8 @@ import Adafruit_PCA9685
 # Getch
 from getch import Getch
 
+# initial Choreography data
+
 ############################################################
 # constants
 
@@ -92,11 +94,16 @@ def set_servo_pulse(channel, pulse, verbose=True):
 
 # abs: absolute position (pos[ch])
 # rel: relative position from absolute posture (-10,.-1,+1,+10)
-def unitMove(ch, pos, abs=None, rel=0, verbose=False):
+
+DUTY_0 = 100    # duty for 0 degree
+DUTY_180 = 620  # duty for 180 degree
+
+def unitMove(servo, ch, abs=None, rel=0, verbose=False):
+    pos = servo['pos']
     if abs is None: abs = pos[ch]
     abs += rel
     pos[ch] = abs
-    pwm.set_pwm(ch, 0, abs)
+    pwm.set_pwm(ch, 0, int(DUTY_0 + abs*DUTY_180/180))
     if verbose: print('move ch:'+str(ch)+" "+str(abs))
     return abs
 
@@ -118,10 +125,11 @@ def fullSwing(ch, pos, *plist, **opts):
         smoothMove(ch, pos, p, verbose=verbose)
     return 0
 
-def multiMove(pos, pmulti, period, sleep=0.01, verbose=False):
+def multiMove(servo, pmulti, period, sleep=0.01, verbose=False):
+    pos = servo['pos']
     if not period:
         for ch,p in pmulti:
-            unitMove(ch, pos, p, verbose=verbose)
+            unitMove(servo, ch, p, verbose=verbose)
         time.sleep(sleep)
     else:
         basestep = int(period/(sleep*1000))
@@ -154,7 +162,7 @@ def multiMove(pos, pmulti, period, sleep=0.01, verbose=False):
             utimer = time.time()
             for xp in pmulti:
                 xp[2] += xp[3] / step
-                unitMove(xp[0], pos, int(round(xp[2]+xp[4])), verbose=verbose)
+                unitMove(servo, xp[0], int(round(xp[2]+xp[4])), verbose=verbose)
             curr = time.time() - utimer
             # 予定されたステップ数を終了したらループから抜ける
             if s==0:
@@ -203,13 +211,22 @@ def mainproc(path=None,dumpfile=None):
  
     if dumpfile:
         print("Loading stat: " + dumpfile)
-        with open(dumpfile, 'rb') as f:
-            rapiro = pickle.load(f)
+        with open(dumpfile, 'rb') as fin:
+            rapiro = pickle.load(fin)
     else:
-        rapiro = {"servo": {"pos": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-                            "max": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-                            "min": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        rapiro = {"servo": {"pos": [],
+                            "max": [],
+                            "min": []},
                   "led": [{"r": 0,"g":0,"bit": 0}]}
+        MAX_CH = 16
+        SERVO_MIDLE = 90
+        SERVO_MAX   = 180
+        SERVO_MIN   = 0
+        for ch in range(0, MAX_CH):
+            servo = rapiro["servo"]
+            servo["pos"].append(SERVO_MIDLE)
+            servo["max"].append(SERVO_MAX)
+            servo["min"].append(SERVO_MIN)
 
     servo = rapiro["servo"]
     led   = rapiro["led"]
@@ -218,17 +235,21 @@ def mainproc(path=None,dumpfile=None):
     min   = servo["min"]
     
     # set initial posture positions
+    
     for ch in range(0, len(pos)):
-        unitMove(ch, pos)
+        unitMove(servo, ch, pos[ch])
 
     # File or tty for input commands
-    getch = Getch(path=path)
+    if path == '-':
+        getch = Getch(path=None)
+    else:    
+        getch = Getch(path=path)
     
     ch = 0
     while True:
         c = getch()
         verbose = not getch.mode
-
+        print "Input:" + str(c)
         # q, ^C: exit from control loop
         if c is None or c in ('\x03','q'):
             if getch.close(): continue
@@ -266,18 +287,18 @@ def mainproc(path=None,dumpfile=None):
 
         # h: move-10, j: move-1, k: move+1, l: move+10
         if   c == 'h':
-            unitMove(ch, pos, rel=-10, verbose=True)
+            unitMove(servo, ch, rel=-10, verbose=True)
         elif c == 'j':
-            unitMove(ch, pos, rel=-1, verbose=True)
+            unitMove(servo, ch, rel=-1, verbose=True)
         elif c == 'k':
-            unitMove(ch, pos, rel=1, verbose=True)
+            unitMove(servo, ch, rel=1, verbose=True)
         elif c == 'l':
-            unitMove(ch, pos, rel=10, verbose=True)
+            unitMove(servo, ch, rel=10, verbose=True)
         # m: force all parts to center posture
         elif c == 'm':
-            mid = (servo_min+servo_max)//2
+            mid = 90  # 90 degree
             for i in range(0, len(pos)):
-                unitMove(i, pos, mid)
+                unitMove(servo, i, mid)
             if verbose: print("set all channels to " + str(mid))
         # x: set current posture as maximum
         elif c == 'x':
@@ -296,6 +317,7 @@ def mainproc(path=None,dumpfile=None):
         elif c == 'c':
             if verbose: sys.stdout.write('type choreography file: ')
             choreo = getch(line=True)
+            j = re.match(r'-j *(\S+) +',choreo)
             if verbose: print('')
             choreo = re.sub(r'[^-.\w]','',choreo.strip())
             getch.push(os.path.join(C_CHOREO_DIR,choreo))
@@ -315,7 +337,7 @@ def mainproc(path=None,dumpfile=None):
                 param = param[m.end():]
             pmulti = map(lambda x:map(int,re.split(r'[=:]',x)),
                          re.split(r' +',param.strip()))
-            multiMove(pos, pmulti, period, verbose=verbose)
+            multiMove(servo, pmulti, period, verbose=verbose)
 
         # i: change command control to tty (use in choreo files)
         elif c == 'i':
