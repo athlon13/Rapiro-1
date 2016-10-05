@@ -130,12 +130,15 @@ def fullSwing(servo, ch, pos, *plist, **opts):
 
 def multiMove(servo, pmulti, period, sleep=0.01, verbose=False):
     pos = servo['pos']
-    limit_max = servo['max'][ch]
-    limit_min = servo['min'][ch]
+    parts = servo['parts']
+    limit_max = servo['max']
+    limit_min = servo['min']
     
     if not period:
         for ch,p in pmulti:
-            unitMove(servo, C_PARTS_TO_INDEX[ch], p, verbose=verbose)
+            if limit_max[ch] < p: p = limit_max[ch]
+            if limit_min[ch] > p: p = limit_min[ch]            
+            unitMove(servo, ch, p, verbose=verbose)
         time.sleep(sleep)
     else:
         basestep = int(period/(sleep*1000))
@@ -144,10 +147,10 @@ def multiMove(servo, pmulti, period, sleep=0.01, verbose=False):
         for xp in pmulti:
             # xp: [ch, to_pos] + [cur_pos, delta, round_error]
             # cur pos: xp[2]
-            if limit_max > pos[xp[0]]:
-                pos[xp[0]] = limint_max
-            if limit_min < pos[xp[0]]:
-                pos[xp[0]] = limint_min
+            if limit_max < pos[xp[0]]:
+                pos[xp[0]] = limit_max[xp[0]]
+            if limit_min > pos[xp[0]]:
+                pos[xp[0]] = limit_min[xp[0]]
             xp.append(pos[xp[0]])
             # delta: xp[3]
             d = xp[1] - xp[2]
@@ -347,6 +350,7 @@ def mainproc(path=None,dumpfile=None):
                 s = m.group(1)
                 period = int(s) if re.match(r'\d+$',s) else 0
                 param = param[m.end():]
+                print str(period) + str(param)
             pmulti = map(lambda x:map(int,re.split(r'[=:]',x)),
                          re.split(r' +',param.strip()))
             multiMove(servo, pmulti, period, verbose=verbose)
