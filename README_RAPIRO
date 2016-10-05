@@ -70,3 +70,10 @@ Rapiro組込みのベーシックなChoreoデータ（forward, backなど）を�
 ./tools/init_choreo.py
 
 ./tools/choreo_data.pyを読み込み、./choreoの下にコマンドファイルを生成します。
+
+■pos値の意味、unitMove, multiMoveのアーギュメント変更
+- pos値の意味をデューティから角度に変更しました。角度は0 - 180度のサーボの角度。
+
+- multi/unitMoveのargをposからservoに変更。
+
+- multiMove、コマンドのchはParts Number, unitMoveのchはI2C Channel

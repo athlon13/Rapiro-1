@@ -68,7 +68,8 @@ C_RAPIRO_INIT = "rapiro.init"
 
 C_PARTS_LIST = ['foot_p_l','foot_y_l','hand_l','shld_p_l','shld_r_l',
                 'waist','head',
-                'shld_r_r','shld_p_r','hand_r','foot_y_r','foot_p_r']
+                'shld_r_r','shld_p_r','hand_r','foot_y_r','foot_p_r',
+                'ch 12','ch 13','ch 14','ch 15']
 C_PARTS_TO_INDEX = {}
 C_INDEX_TO_PARTS = {}
 for i in range(0,len(C_PARTS_LIST)):
@@ -107,29 +108,34 @@ def unitMove(servo, ch, abs=None, rel=0, verbose=False):
     if verbose: print('move ch:'+str(ch)+" "+str(abs))
     return abs
 
-def smoothMove(ch, pos, to_pos, sleep=0.01, verbose=False):
+def smoothMove(servo, ch, pos, to_pos, sleep=0.01, verbose=False):
+    pos = servo['pos']
     from_pos = pos[ch]
     delta = 1 if from_pos < to_pos else -1
     for p in range(from_pos+delta, to_pos+delta, delta):
-        unitMove(ch, pos, p)
+        unitMove(servo, ch, pos, p)
         time.sleep(sleep)
     if verbose: print('smooth ch:'+str(ch)+" "+str(from_pos)+"=>"+str(to_pos))
     return to_pos - from_pos
 
 # plist: list of (next-pos, next-next-pos, ... last-pos)
-def fullSwing(ch, pos, *plist, **opts):
+def fullSwing(servo, ch, pos, *plist, **opts):
+    pos = servo['pos']
     verbose = opts.get('verbose',None)
     cur = pos[ch]
     if verbose: print('swing ch:'+str(ch)+" "+str(cur)+"=>"+str(plist))
     for p in plist:
-        smoothMove(ch, pos, p, verbose=verbose)
+        smoothMove(servo, ch, pos, p, verbose=verbose)
     return 0
 
 def multiMove(servo, pmulti, period, sleep=0.01, verbose=False):
     pos = servo['pos']
+    limit_max = servo['max'][ch]
+    limit_min = servo['min'][ch]
+    
     if not period:
         for ch,p in pmulti:
-            unitMove(servo, ch, p, verbose=verbose)
+            unitMove(servo, C_PARTS_TO_INDEX[ch], p, verbose=verbose)
         time.sleep(sleep)
     else:
         basestep = int(period/(sleep*1000))
@@ -138,6 +144,10 @@ def multiMove(servo, pmulti, period, sleep=0.01, verbose=False):
         for xp in pmulti:
             # xp: [ch, to_pos] + [cur_pos, delta, round_error]
             # cur pos: xp[2]
+            if limit_max > pos[xp[0]]:
+                pos[xp[0]] = limint_max
+            if limit_min < pos[xp[0]]:
+                pos[xp[0]] = limint_min
             xp.append(pos[xp[0]])
             # delta: xp[3]
             d = xp[1] - xp[2]
@@ -216,7 +226,8 @@ def mainproc(path=None,dumpfile=None):
     else:
         rapiro = {"servo": {"pos": [],
                             "max": [],
-                            "min": []},
+                            "min": [],
+                            "parts": []},
                   "led": [{"r": 0,"g":0,"bit": 0}]}
         MAX_CH = 16
         SERVO_MIDLE = 90
@@ -227,15 +238,16 @@ def mainproc(path=None,dumpfile=None):
             servo["pos"].append(SERVO_MIDLE)
             servo["max"].append(SERVO_MAX)
             servo["min"].append(SERVO_MIN)
+            servo["parts"].append(C_PARTS_TO_INDEX[C_PARTS_LIST[ch]])
 
     servo = rapiro["servo"]
     led   = rapiro["led"]
     pos   = servo["pos"]
     max   = servo["max"]
     min   = servo["min"]
+    parts  = servo["parts"]
     
     # set initial posture positions
-    
     for ch in range(0, len(pos)):
         unitMove(servo, ch, pos[ch])
 
@@ -268,7 +280,7 @@ def mainproc(path=None,dumpfile=None):
                     ch = int(c + c2)
                 else:
                     ch = 1
-            if verbose: print("set current channel=" + str(ch))
+            if verbose: print("set current channel=" + str(parts[ch]) + ": " + C_PARTS_LIST[parts[ch]])
             continue
         
         # measure elapsed time and print in seconds between 'ts' and 'te'
@@ -310,7 +322,7 @@ def mainproc(path=None,dumpfile=None):
             if verbose: print("set min pos=" + str(pos[ch]))
         # g: move cur->min->max->cur posture
         elif c == 'g':
-            fullSwing(ch, pos, min[ch], max[ch], pos[ch], verbose=True)
+            fullSwing(servo, ch, pos, min[ch], max[ch], pos[ch], verbose=True)
 
         # c: dance with specified choreography file (nestable)
         #   c filename
@@ -338,6 +350,9 @@ def mainproc(path=None,dumpfile=None):
             pmulti = map(lambda x:map(int,re.split(r'[=:]',x)),
                          re.split(r' +',param.strip()))
             multiMove(servo, pmulti, period, verbose=verbose)
+        elif c == 'a': # Asign logical channel and parts name
+            parts[ch] = (parts[ch] + 1) % len(pos)
+            if verbose: print("Part name: " + C_PARTS_LIST[parts[ch]])          
 
         # i: change command control to tty (use in choreo files)
         elif c == 'i':
