@@ -119,26 +119,37 @@ def smoothMove(servo, ch, pos, to_pos, sleep=0.01, verbose=False):
     return to_pos - from_pos
 
 # plist: list of (next-pos, next-next-pos, ... last-pos)
-def fullSwing(servo, ch, pos, *plist, **opts):
+def Swing(servo, ch, pos, *plist, **opts):
     pos = servo['pos']
     verbose = opts.get('verbose',None)
     cur = pos[ch]
     if verbose: print('swing ch:'+str(ch)+" "+str(cur)+"=>"+str(plist))
+    time = 1000
     for p in plist:
-        smoothMove(servo, ch, pos, p, verbose=verbose)
+        #smoothMove(servo, ch, pos, p, verbose=verbose)
+        multiMove(servo, [[ch, p]], time)
     return 0
+
+def fullSwing(servo, ch, time, verbose=False):
+    cur = servo['pos'][ch]
+    max = servo['max'][ch]
+    min = servo['min'][ch]
+    if verbose: print('swing ch:'+str(ch)+" "+str(cur)+"=>"+str(min)+"=>"+str(max)+"=>"+str(cur))   
+    multiMove(servo, [[ch, min]], time)
+    multiMove(servo, [[ch, max]], time)
+    multiMove(servo, [[ch, cur]], time)
 
 def multiMove(servo, pmulti, period, sleep=0.01, verbose=False):
     pos = servo['pos']
-    parts = servo['parts']
     limit_max = servo['max']
     limit_min = servo['min']
-    
+
     if not period:
         for ch,p in pmulti:
             if limit_max[ch] < p: p = limit_max[ch]
-            if limit_min[ch] > p: p = limit_min[ch]            
-            unitMove(servo, ch, p, verbose=verbose)
+            if limit_min[ch] > p: p = limit_min[ch]   
+            adj =  int((limit_max[ch] + limit_min[ch])/2) - 90         
+            unitMove(servo, ch, p+adj, verbose=verbose)
         time.sleep(sleep)
     else:
         basestep = int(period/(sleep*1000))
@@ -322,7 +333,8 @@ def mainproc(path=None,dumpfile=None):
             if verbose: print("set min pos=" + str(pos[ch]))
         # g: move cur->min->max->cur posture
         elif c == 'g':
-            fullSwing(servo, ch, pos, min[ch], max[ch], pos[ch], verbose=True)
+            time = 1000
+            fullSwing(servo, ch, time, verbose=True)
 
         # c: dance with specified choreography file (nestable)
         #   c filename
