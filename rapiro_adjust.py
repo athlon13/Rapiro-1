@@ -162,7 +162,7 @@ def multiMove(servo, pmulti, period, sleep=0.01, verbose=False):
             ch = xp[0]
             # cur_pos: xp[2]
             xp.append(pos[ch])
-            print str(xp)
+            print(str(xp))
             if limit_max[ch] < xp[2]:
                 xp[2] = limit_max[ch]
             elif limit_min[ch] > xp[2]:
@@ -225,7 +225,7 @@ def printhelp(verbose=True):
     print('  h:-10, j:-1, k:+1, l:+10, g:full swing')
     print('  m:set center, x:set max pos, n:set min pos')
     print('  c:load choreography file, i:revert to tty (use in file)')
-    print('  p:simultaneous move of mult-channels, t[se]:timer, H:help, q:quit')
+    print('  p:simultaneous move of multi-channels, t[se]:timer, H:help, q:quit')
     print('')
 
 ############################################################
@@ -274,7 +274,7 @@ def mainproc(path=None,dumpfile=None):
     while True:
         c = getch()
         verbose = not getch.mode
-        print "Input:" + str(c)
+        print("Input:" + str(c))
         # q, ^C: exit from control loop
         if c is None or c in ('\x03','q'):
             if getch.close(): continue
@@ -361,7 +361,7 @@ def mainproc(path=None,dumpfile=None):
                 s = m.group(1)
                 period = int(s) if re.match(r'\d+$',s) else 0
                 param = param[m.end():]
-                print str(period) + str(param)
+                print(str(period) + str(param))
             pmulti = map(lambda x:map(int,re.split(r'[=:]',x)),
                          re.split(r' +',param.strip()))
             multiMove(servo, pmulti, period, verbose=verbose)
