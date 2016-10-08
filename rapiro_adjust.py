@@ -339,24 +339,6 @@ def mainproc(path=None,dumpfile=None):
             if verbose: print("set current channel=" + str(ch) + ": " + C_PARTS_LIST[ch])
             continue
         
-        # get external control
-        # 1,1,feedback:c=COMMAND;g=GROUP;s=SID;t=TIMESTAMP;v=VALUE[LOWER:UPPER]
-        # (1) VALUE should be [10, 50], and be mapped to 0,1,2,3,4 each 10 unit
-        # (2) select and execute choreo file 'choreo0', 'choreo1', respectively
-        if c == 's':
-            ext = get_ext_control()
-            if not re.search(r'feedback:',ext): continue
-
-            _m = re.search(r';v=([.\d]+)',ext)
-            if not _m: continue
-
-            distance = float(_m.group(1))
-            print('DISTANCE: '+str(distance))
-            # extract 0, 1, 2, ... command ID
-            choreoid = int(distance/10)
-            getch.push(os.path.join(C_CHOREO_DIR,'choreo'+str(choreoid)))
-            continue
-
         # measure elapsed time and print in seconds between 'ts' and 'te'
         if c == 't':
             c2 = getch()
@@ -426,7 +408,27 @@ def mainproc(path=None,dumpfile=None):
             pmulti = map(lambda x:map(int,re.split(r'[=:]',x)),
                          re.split(r' +',param.strip()))
             multiMove(servo, pmulti, period, verbose=verbose)
-        elif c == 'z': # Assign physical channel
+
+        # get external control
+        # 1,1,feedback:c=COMMAND;g=GROUP;s=SID;t=TIMESTAMP;v=VALUE[LOWER:UPPER]
+        # (1) VALUE should be [10, 50], and be mapped to 1,2,3,4,5
+        # (2) select and execute choreo file 'choreo1',... respectively
+        elif c == 's':
+            ext = get_ext_control()
+            if not re.search(r'feedback:',ext): continue
+
+            _m = re.search(r';v=([.\d]+)',ext)
+            if not _m: continue
+
+            distance = float(_m.group(1))
+            print('DISTANCE: '+str(distance))
+            # extract 1, 2, ... as choreo-ID
+            choreoid = int(distance/10)
+            if choreoid < 1 or 5 < choreoid: continue
+            getch.push(os.path.join(C_CHOREO_DIR,'choreo'+str(choreoid)))
+
+        # a,z: Assign physical channel settings
+        elif c == 'z':
             #parts[ch] = (parts[ch] + 1) % len(pos)
             #phys[ch] = (phys[ch] + 1) % len(pos)
             #if verbose: print("Part name: " + C_PARTS_LIST[parts[ch]])          
@@ -438,6 +440,7 @@ def mainproc(path=None,dumpfile=None):
             ch = (ch + 1) % len(pos)
             phys[ch] = ph
             if verbose: print("Part name: " + C_PARTS_LIST[ch]) 
+
         # i: change command control to tty (use in choreo files)
         elif c == 'i':
             getch.push()
