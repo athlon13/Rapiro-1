@@ -101,10 +101,12 @@ DUTY_180 = 620  # duty for 180 degree
 
 def unitMove(servo, ch, abs=None, rel=0, verbose=False):
     pos = servo['pos']
+    phys = servo['phys']
     if abs is None: abs = pos[ch]
     abs += rel
     pos[ch] = abs
-    pwm.set_pwm(ch, 0, int(DUTY_0 + abs*DUTY_180/180))
+    adj =  int((servo['max'][ch] + servo['min'][ch])/2) - 90  
+    pwm.set_pwm(phys[ch], 0, int(DUTY_0 + (abs+adj)*DUTY_180/180))
     if verbose: print('move ch:'+str(ch)+" "+str(abs))
     return abs
 
@@ -291,7 +293,7 @@ def mainproc(path=None,dumpfile=None):
                     ch = int(c + c2)
                 else:
                     ch = 1
-            if verbose: print("set current channel=" + str(parts[ch]) + ": " + C_PARTS_LIST[parts[ch]])
+            if verbose: print("set current channel=" + str(ch) + ": " + C_PARTS_LIST[ch])
             continue
         
         # measure elapsed time and print in seconds between 'ts' and 'te'
@@ -363,10 +365,18 @@ def mainproc(path=None,dumpfile=None):
             pmulti = map(lambda x:map(int,re.split(r'[=:]',x)),
                          re.split(r' +',param.strip()))
             multiMove(servo, pmulti, period, verbose=verbose)
-        elif c == 'a': # Asign logical channel and parts name
-            parts[ch] = (parts[ch] + 1) % len(pos)
-            if verbose: print("Part name: " + C_PARTS_LIST[parts[ch]])          
-
+        elif c == 'z': # Asign physical channel
+            #parts[ch] = (parts[ch] + 1) % len(pos)
+            #phys[ch] = (phys[ch] + 1) % len(pos)
+            #if verbose: print("Part name: " + C_PARTS_LIST[parts[ch]])          
+            #if verbose: print("Phys Channel: " + str(ch))  
+            phys[ch] = (phys[ch] + 1) % len(pos)
+            if verbose: print("Phys Channel: " + str(phys[ch])) 
+        elif c == 'a':     
+            ph = (phys[ch] + 1) % len(pos)
+            ch = (ch + 1) % len(pos)
+            phys[ch] = ph
+            if verbose: print("Part name: " + C_PARTS_LIST[ch]) 
         # i: change command control to tty (use in choreo files)
         elif c == 'i':
             getch.push()
