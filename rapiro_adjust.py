@@ -146,13 +146,14 @@ def multiMove(servo, pmulti, period, sleep=0.01, verbose=False):
         totalstep = 0
         for xp in pmulti:
             # xp: [ch, to_pos] + [cur_pos, delta, round_error]
-            # cur pos: xp[2]
-            xp.append(pos[xp[0]])
+            ch = xp[0]
+            # cur_pos: xp[2]
+            xp.append(pos[ch])
             print str(xp)
-            if limit_max[xp[0]] < xp[2]:
-                xp[2] = limit_max[xp[0]]
-            if limit_min[xp[0]] > xp[2]:
-                xp[2] = limit_min[xp[0]]           
+            if limit_max[ch] < xp[2]:
+                xp[2] = limit_max[ch]
+            elif limit_min[ch] > xp[2]:
+                xp[2] = limit_min[ch]           
             # delta: xp[3]
             d = xp[1] - xp[2]
             xp.append(d)
@@ -223,33 +224,28 @@ def mainproc(path=None,dumpfile=None):
 
     printhelp()
  
+    MAX_CH = 16
+    SERVO_MIDDLE = 90
+    SERVO_MAX    = 180
+    SERVO_MIN    = 0
+        
     if dumpfile:
         print("Loading stat: " + dumpfile)
         with open(dumpfile, 'rb') as fin:
             rapiro = pickle.load(fin)
     else:
-        rapiro = {"servo": {"pos": [],
-                            "max": [],
-                            "min": [],
-                            "parts": []},
+        rapiro = {"servo": {"pos": [SERVO_MIDDLE] * MAX_CH,
+                            "max": [SERVO_MAX] * MAX_CH,
+                            "min": [SERVO_MIN] * MAX_CH,
+                            "parts": range(0, MAX_CH)},
                   "led": [{"r": 0,"g":0,"bit": 0}]}
-        MAX_CH = 16
-        SERVO_MIDLE = 90
-        SERVO_MAX   = 180
-        SERVO_MIN   = 0
-        for ch in range(0, MAX_CH):
-            servo = rapiro["servo"]
-            servo["pos"].append(SERVO_MIDLE)
-            servo["max"].append(SERVO_MAX)
-            servo["min"].append(SERVO_MIN)
-            servo["parts"].append(C_PARTS_TO_INDEX[C_PARTS_LIST[ch]])
 
     servo = rapiro["servo"]
     led   = rapiro["led"]
     pos   = servo["pos"]
     max   = servo["max"]
     min   = servo["min"]
-    parts  = servo["parts"]
+    parts = servo["parts"]
     
     # set initial posture positions
     for ch in range(0, len(pos)):
@@ -312,7 +308,7 @@ def mainproc(path=None,dumpfile=None):
             unitMove(servo, ch, rel=10, verbose=True)
         # m: force all parts to center posture
         elif c == 'm':
-            mid = 90  # 90 degree
+            mid = SERVO_MIDDLE  # 90 degree
             for i in range(0, len(pos)):
                 unitMove(servo, i, mid)
             if verbose: print("set all channels to " + str(mid))
