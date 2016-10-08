@@ -147,11 +147,11 @@ def multiMove(servo, pmulti, period, sleep=0.01, verbose=False):
         for xp in pmulti:
             # xp: [ch, to_pos] + [cur_pos, delta, round_error]
             # cur pos: xp[2]
-            if limit_max < pos[xp[0]]:
-                pos[xp[0]] = limit_max[xp[0]]
-            if limit_min > pos[xp[0]]:
-                pos[xp[0]] = limit_min[xp[0]]
             xp.append(pos[xp[0]])
+            if limit_max < xp[2]:
+                xp[2] = limit_max[xp[0]]
+            if limit_min > xp[2]:
+                xp[2] = limit_min[xp[0]]
             # delta: xp[3]
             d = xp[1] - xp[2]
             xp.append(d)
