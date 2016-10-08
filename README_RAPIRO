@@ -77,3 +77,8 @@ Rapiro組込みのベーシックなChoreoデータ（forward, backなど）を�
 - multi/unitMoveのargをposからservoに変更。
 
 - multiMove、コマンドのchはParts Number, unitMoveのchはI2C Channel
+
+- fullSwing関数：multiMoveを使用。元の関数はSwingとして保存（うまく動かないみたいです）
+
+- 'a'/'z' コマンド：Physical channelマッピング用
+
