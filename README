@@ -4,7 +4,7 @@ Rapiroコントローラ README
   README_RAPIRO		このファイルです
   rapiro_adjust.py	Rapiroコントロールプログラム本体
   getch.py		コントロール文字の入力・スクリプトファイル読み込みライブラリ
-  choreo_data.py	Rapiro基本動作振り付けのPython版データ)
+  choreo_data.py	Rapiro基本動作振り付けのPython版データ
   choreo/*		振り付けスクリプト(choreo_data.pyを本仕様に合わせたもの)
   tools/*		
 
@@ -36,10 +36,14 @@ Rapiroコントローラ README
      元のコレオグラフィスクリプトの残りの部分の実行に戻ります。
   p: p [-s msec] ch1:pos1 ch2:pos2 ...
      時間msecで、複数のchに対して同時並行でそれぞれの指定位置への移動を試みます。
+  s: config.jsonで指定された外部URLに対してコマンドの取得を試みます。
+     得られる結果には 'v=小数点数' 値域は[10,50] の形式の文字列が含まれるものとし、
+     この数値の10の位の値(1～5までの整数値)に応じて、choreo1～choreo5のコレオグラフィ
+     スクリプトが実行されます。
   a,z: Logical/Physical channelマッピングを変更することができます。
   ts,te: ts title, te
-     tsとteに囲まれた処理の実行時間を表示する。tsにはtitle文字列を指定でき、時間表示時に
-     そのtitleが表示される。
+     tsとteに囲まれた処理の実行時間を表示します。tsにはtitle文字列を指定できて、
+     時間表示時にそのtitleが表示されます。
   q: インタラクティブモードを終了します。^C も同様の動作になります。   
   
 ■Getchクラス(getch.py)
