@@ -118,7 +118,7 @@ def initproc(verbose=False):
     if verbose:
         for k,v in conf.items(): print('CONF: '+k+'='+str(v))
     return conf
-    
+
 def set_servo_pulse(channel, pulse, verbose=True):
     pulse_length = 1000000    # 1,000,000 us per second
     pulse_length //= 60       # 60 Hz
@@ -315,7 +315,7 @@ def mainproc(path=None,dumpfile=None):
     while True:
         c = getch()
         verbose = not getch.mode
-        print("Input:" + str(c))
+        #print("Input:" + str(c))
         # q, ^C: exit from control loop
         if c is None or c in ('\x03','q'):
             if getch.close(): continue
@@ -341,7 +341,6 @@ def mainproc(path=None,dumpfile=None):
         if c == 't':
             c2 = getch()
             if c2 == 's':
-                if verbose: sys.stdout.write('ts')
                 title = getch(line=True).strip()
                 if verbose: print(title)
                 timer = time.time()
@@ -376,33 +375,36 @@ def mainproc(path=None,dumpfile=None):
             if verbose: print("set min pos=" + str(pos[ch]))
         # g: move cur->min->max->cur posture
         elif c == 'g':
-            time = 1000
-            fullSwing(servo, ch, time, verbose=True)
+            swtime = 1000
+            fullSwing(servo, ch, swtime, verbose=True)
 
         # c: dance with specified choreography file (nestable)
-        #   c filename
+        #   c filename [count]
         elif c == 'c':
-            if verbose: sys.stdout.write('type choreography file: ')
-            choreo = getch(line=True)
-            j = re.match(r'-j *(\S+) +',choreo)
-            if verbose: print('')
-            choreo = re.sub(r'[^-.\w]','',choreo.strip())
-            getch.push(os.path.join(C_CHOREO_DIR,choreo))
+            choreo = getch(line=True,
+                           prompt=verbose and 'type choreo file: ').strip()
+            m = re.match(r'([-.\w]+)( +\d+)?',choreo)
+            if not m:
+                print('usage: c choreo_file [count]')
+                continue
+            count = int(m.group(2) or '1')
+            choreo = m.group(1)
+            filename = os.path.join(C_CHOREO_DIR,choreo)
+            print('file='+filename+' count='+str(count))
+            for x in range(0,count): getch.push(filename)
 
         # p: move posture simultaneously over specified multiple channels
         #   p [-s 1000] 1:100 2:200 ... (set 'ch:pos' pairs, '=' also allowed)
         elif c == 'p':
-            if verbose: sys.stdout.write('type channel settings: ')
-            param = getch(line=True)
-            if verbose: print('')
-            param = param.strip()
+            param = getch(line=True,
+                          prompt=verbose and 'type channel settings: ').strip()
             m = re.match(r'-s *(\S+) +',param)
             period = None
             if m:
                 s = m.group(1)
                 period = int(s) if re.match(r'\d+$',s) else 0
                 param = param[m.end():]
-                print(str(period) + str(param))
+                print('-s='+str(period)+' '+str(param))
             pmulti = map(lambda x:map(int,re.split(r'[=:]',x)),
                          re.split(r' +',param.strip()))
             multiMove(servo, pmulti, period, verbose=verbose)
@@ -439,6 +441,12 @@ def mainproc(path=None,dumpfile=None):
         elif c == 'i':
             getch.push()
 
+        # w: wait (in milliseconds)
+        elif c == 'w':
+            param = getch(line=True,
+                          prompt=verbose and 'type milliseconds: ').strip()
+            wait = int(param) if re.match(r'\d+$',param) else 1000
+            time.sleep(wait/1000)
         # H: print help
         elif c == 'H':
             printhelp()

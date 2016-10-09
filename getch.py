@@ -20,6 +20,11 @@
 import sys
 
 ############################################################
+# constants
+
+C_MAX_DEPTH = 30000
+
+############################################################
 # class definitions
 
 class Getch:
@@ -34,9 +39,10 @@ class Getch:
         self.impl = _GetchFile(path) if path else self.tty
 
     # 'line' reads characters until CR/LF comes and returns line string
-    def __call__(self,line=False):
+    def __call__(self,line=False,prompt=''):
         if not line: return self.impl()
 
+        if prompt: sys.stdout.write(prompt)
         buf = []
         c = self.impl()
         while c not in ('\r','\n'):
@@ -44,12 +50,15 @@ class Getch:
             else: buf.append(c)
             if not self.mode: sys.stdout.write(c)
             c = self.impl()
+        if prompt: sys.stdout.write('\n')
         return ''.join(buf)
 
     # Push nested input context (tty or file)
     def push(self, path=None):
-        if path and path in self.files:
-            raise Exception("Duplicate nested file: "+path)
+        #if path and path in self.files:
+        #    raise Exception("Duplicate nested file: "+path)
+        if len(self.stack) > C_MAX_DEPTH:
+            raise Exception("Too many nested files: "+path)
 
         self.stack.append(self.impl)
         self.files.append(path)
