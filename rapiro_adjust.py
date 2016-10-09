@@ -291,8 +291,7 @@ def mainproc(path=None,dumpfile=None):
         rapiro = {"servo": {"pos": [SERVO_MIDDLE] * MAX_CH,
                             "max": [SERVO_MAX] * MAX_CH,
                             "min": [SERVO_MIN] * MAX_CH,
-                            "phys": range(0, MAX_CH),
-                            "parts": range(0, MAX_CH)},
+                            "phys": range(0, MAX_CH)},
                   "led": [{"r": 0,"g":0,"bit": 0}]}
 
     servo = rapiro["servo"]
@@ -301,8 +300,7 @@ def mainproc(path=None,dumpfile=None):
     max   = servo["max"]
     min   = servo["min"]
     phys  = servo["phys"]
-    parts = servo["parts"]
-    
+
     # set initial posture positions
     for ch in range(0, len(pos)):
         unitMove(servo, ch, pos[ch])
@@ -429,22 +427,18 @@ def mainproc(path=None,dumpfile=None):
 
         # a,z: Assign physical channel settings
         elif c == 'z':
-            #parts[ch] = (parts[ch] + 1) % len(pos)
-            #phys[ch] = (phys[ch] + 1) % len(pos)
-            #if verbose: print("Part name: " + C_PARTS_LIST[parts[ch]])          
-            #if verbose: print("Phys Channel: " + str(ch))  
             phys[ch] = (phys[ch] + 1) % len(pos)
-            if verbose: print("Phys Channel: " + str(phys[ch])) 
-        elif c == 'a':     
+            if verbose: print("Phys Channel: " + str(phys[ch]))
+        elif c == 'a':
             ph = (phys[ch] + 1) % len(pos)
             ch = (ch + 1) % len(pos)
             phys[ch] = ph
-            if verbose: print("Part name: " + C_PARTS_LIST[ch]) 
+            if verbose: print("Part name: " + C_PARTS_LIST[ch])
 
         # i: change command control to tty (use in choreo files)
         elif c == 'i':
             getch.push()
-            
+
         # H: print help
         elif c == 'H':
             printhelp()
