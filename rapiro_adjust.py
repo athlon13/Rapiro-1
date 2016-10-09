@@ -263,6 +263,15 @@ def printhelp(verbose=True):
     print('  c:load choreography file, i:revert to tty (use in file)')
     print('  p:simultaneous move of multi-channels, s:get external control')
     print('  ts,te:timer start and end, H:help, q:quit')
+    
+    print('Choreography files:')
+    (i, m) = (0, 8)
+    for fn in sorted(os.listdir(C_CHOREO_DIR)):
+        if i==0: sys.stdout.write('  ')
+        sys.stdout.write(fn)
+        sys.stdout.write('\n' if i==m-1 else ' ')
+        i = (i+1) % m
+    if i!=0: print('')
     print('')
 
 ############################################################
