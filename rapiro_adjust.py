@@ -21,6 +21,7 @@ from __future__ import division
 import os
 import sys
 import time
+from datetime import datetime
 import re
 import pickle
 import json
@@ -49,6 +50,9 @@ pwm = Adafruit_PCA9685.PCA9685()
 # Configure min and max servo pulse lengths
 servo_min = 150  # Min pulse length out of 4096
 servo_max = 600  # Max pulse length out of 4096
+
+# Rapiro configuration
+C_RAPIRO_CONF = "config.json"
 
 # Rapiro status dumpfile
 C_RAPIRO_INIT = "rapiro.init"
@@ -81,8 +85,40 @@ C_CHOREO_DIR = 'choreo'
 C_MINIMUM_SLEEP = 0.001
 
 ############################################################
+# External Control Feature
+
+def getnow():
+    return datetime.utcnow().isoformat()[:-3]+'Z'
+
+from scsender import SCsender
+
+ext_control = None
+def init_ext_control(host, session):
+    global ext_control
+    if ext_control is None:
+         ext_control = SCsender(host=host, session=session)
+
+def get_ext_control(verbose=False):
+    global ext_control
+    ext_control.add('dummy',getnow(),'X',0)
+    out = ''
+    try:
+        ret = ext_control.post(retry=1,wait=1,keep_on_error=False)
+        out = str(ret.read())
+        if verbose: print('RECV: '+out)
+    except:
+        if verbose: print('ERROR')
+    return out
+
+############################################################
 # Helper function to make setting a servo pulse width simpler.
 
+def initproc(verbose=False):
+    conf = json.loads(open(C_RAPIRO_CONF,'r').read())
+    if verbose:
+        for k,v in conf.items(): print('CONF: '+k+'='+str(v))
+    return conf
+    
 def set_servo_pulse(channel, pulse, verbose=True):
     pulse_length = 1000000    # 1,000,000 us per second
     pulse_length //= 60       # 60 Hz
@@ -162,7 +198,7 @@ def multiMove(servo, pmulti, period, sleep=0.01, verbose=False):
             ch = xp[0]
             # cur_pos: xp[2]
             xp.append(pos[ch])
-            print str(xp)
+            print(str(xp))
             if limit_max[ch] < xp[2]:
                 xp[2] = limit_max[ch]
             elif limit_min[ch] > xp[2]:
@@ -225,13 +261,18 @@ def printhelp(verbose=True):
     print('  h:-10, j:-1, k:+1, l:+10, g:full swing')
     print('  m:set center, x:set max pos, n:set min pos')
     print('  c:load choreography file, i:revert to tty (use in file)')
-    print('  p:simultaneous move of mult-channels, t[se]:timer, H:help, q:quit')
+    print('  p:simultaneous move of multi-channels, s:get external control')
+    print('  ts,te:timer start and end, H:help, q:quit')
     print('')
 
 ############################################################
 # main procedure
 
 def mainproc(path=None,dumpfile=None):
+    # Initialization of Rapiro Controller
+    conf = initproc()
+    init_ext_control(conf['endpoint'], conf['session'])
+    
     # Set frequency to 60hz, good for servos.
     pwm.set_pwm_freq(60)
 
@@ -250,6 +291,7 @@ def mainproc(path=None,dumpfile=None):
         rapiro = {"servo": {"pos": [SERVO_MIDDLE] * MAX_CH,
                             "max": [SERVO_MAX] * MAX_CH,
                             "min": [SERVO_MIN] * MAX_CH,
+                            "phys": range(0, MAX_CH),
                             "parts": range(0, MAX_CH)},
                   "led": [{"r": 0,"g":0,"bit": 0}]}
 
@@ -258,6 +300,7 @@ def mainproc(path=None,dumpfile=None):
     pos   = servo["pos"]
     max   = servo["max"]
     min   = servo["min"]
+    phys  = servo["phys"]
     parts = servo["parts"]
     
     # set initial posture positions
@@ -274,7 +317,7 @@ def mainproc(path=None,dumpfile=None):
     while True:
         c = getch()
         verbose = not getch.mode
-        print "Input:" + str(c)
+        print("Input:" + str(c))
         # q, ^C: exit from control loop
         if c is None or c in ('\x03','q'):
             if getch.close(): continue
@@ -361,11 +404,31 @@ def mainproc(path=None,dumpfile=None):
                 s = m.group(1)
                 period = int(s) if re.match(r'\d+$',s) else 0
                 param = param[m.end():]
-                print str(period) + str(param)
+                print(str(period) + str(param))
             pmulti = map(lambda x:map(int,re.split(r'[=:]',x)),
                          re.split(r' +',param.strip()))
             multiMove(servo, pmulti, period, verbose=verbose)
-        elif c == 'z': # Asign physical channel
+
+        # get external control
+        # 1,1,feedback:c=COMMAND;g=GROUP;s=SID;t=TIMESTAMP;v=VALUE[LOWER:UPPER]
+        # (1) VALUE should be [10, 50], and be mapped to 1,2,3,4,5
+        # (2) select and execute choreo file 'choreo1',... respectively
+        elif c == 's':
+            ext = get_ext_control()
+            if not re.search(r'feedback:',ext): continue
+
+            _m = re.search(r';v=([.\d]+)',ext)
+            if not _m: continue
+
+            distance = float(_m.group(1))
+            print('DISTANCE: '+str(distance))
+            # extract 1, 2, ... as choreo-ID
+            choreoid = int(distance/10)
+            if choreoid < 1 or 5 < choreoid: continue
+            getch.push(os.path.join(C_CHOREO_DIR,'choreo'+str(choreoid)))
+
+        # a,z: Assign physical channel settings
+        elif c == 'z':
             #parts[ch] = (parts[ch] + 1) % len(pos)
             #phys[ch] = (phys[ch] + 1) % len(pos)
             #if verbose: print("Part name: " + C_PARTS_LIST[parts[ch]])          
@@ -377,6 +440,7 @@ def mainproc(path=None,dumpfile=None):
             ch = (ch + 1) % len(pos)
             phys[ch] = ph
             if verbose: print("Part name: " + C_PARTS_LIST[ch]) 
+
         # i: change command control to tty (use in choreo files)
         elif c == 'i':
             getch.push()
