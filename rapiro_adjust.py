@@ -400,6 +400,9 @@ def mainproc(path=None,dumpfile=None):
             choreo = m.group(1)
             filename = os.path.join(C_CHOREO_DIR,choreo)
             print('file='+filename+' count='+str(count))
+            if not os.path.exists(filename):
+                print('choreo file %s not exists'%choreo)
+                continue
             for x in range(0,count): getch.push(filename)
 
         # p: move posture simultaneously over specified multiple channels
