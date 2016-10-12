@@ -23,7 +23,7 @@ import sys
 import time
 from datetime import datetime
 import re
-import pickle
+#import pickle
 import json
 
 # Import the PCA9685 module.
@@ -56,6 +56,7 @@ C_RAPIRO_CONF = "config.json"
 
 # Rapiro status dumpfile
 C_RAPIRO_INIT = "rapiro.init"
+C_RAPIRO_JSON = "rapiro.json"
 
 #  0: L foot pitch
 #  1: L foot yaw
@@ -114,7 +115,9 @@ def get_ext_control(verbose=False):
 # Helper function to make setting a servo pulse width simpler.
 
 def initproc(verbose=False):
-    conf = json.loads(open(C_RAPIRO_CONF,'r').read())
+    input = open(C_RAPIRO_CONF,'r')
+    conf = json.loads(input.read())
+    input.close()
     if verbose:
         for k,v in conf.items(): print('CONF: '+k+'='+str(v))
     return conf
@@ -292,10 +295,12 @@ def mainproc(path=None,dumpfile=None):
     SERVO_MAX    = 180
     SERVO_MIN    = 0
         
-    if dumpfile:
+    if dumpfile and os.path.exists(dumpfile):
         print("Loading stat: " + dumpfile)
-        with open(dumpfile, 'rb') as fin:
-            rapiro = pickle.load(fin)
+        #with open(dumpfile, 'rb') as f:
+        #    rapiro = pickle.load(f)
+        with open(C_RAPIRO_JSON,'r') as f:
+            rapiro = json.loads(f.read())
     else:
         rapiro = {"servo": {"pos": [SERVO_MIDDLE] * MAX_CH,
                             "max": [SERVO_MAX] * MAX_CH,
@@ -467,8 +472,10 @@ def mainproc(path=None,dumpfile=None):
             print("INVALID COMMAND:"+c)
             printhelp(verbose=False)
 
-    with open(C_RAPIRO_INIT, "wb") as f:
-        pickle.dump(rapiro, f)
+    #with open(dumpfile or C_RAPIRO_INIT, "wb") as f:
+    #    pickle.dump(rapiro, f)
+    with open(dumpfile or C_RAPIRO_JSON,'w') as f:
+        f.write(json.dumps(rapiro))
  
 if __name__ == "__main__":
     print('Usage: %s [ choreo ] [ dump ]' % os.path.basename(sys.argv[0]))
