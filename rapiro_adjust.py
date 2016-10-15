@@ -23,7 +23,6 @@ import sys
 import time
 from datetime import datetime
 import re
-#import pickle
 import json
 
 # Import the PCA9685 module.
@@ -113,6 +112,9 @@ def get_ext_control(verbose=False):
 
 ############################################################
 # Helper function to make setting a servo pulse width simpler.
+
+def make_choreo_path(file):
+    return os.path.join(C_CHOREO_DIR,file)
 
 def initproc(verbose=False):
     input = open(C_RAPIRO_CONF,'r')
@@ -280,7 +282,7 @@ def printhelp(verbose=True):
 ############################################################
 # main procedure
 
-def mainproc(path=None,dumpfile=None):
+def mainproc(script=None,dumpfile=None):
     # Initialization of Rapiro Controller
     conf = initproc()
     init_ext_control(conf['endpoint'], conf['session'])
@@ -288,7 +290,7 @@ def mainproc(path=None,dumpfile=None):
     # Set frequency to 60hz, good for servos.
     pwm.set_pwm_freq(60)
 
-    printhelp()
+    #printhelp()
  
     MAX_CH = 16
     SERVO_MIDDLE = 90
@@ -297,8 +299,6 @@ def mainproc(path=None,dumpfile=None):
         
     if dumpfile and os.path.exists(dumpfile):
         print("Loading stat: " + dumpfile)
-        #with open(dumpfile, 'rb') as f:
-        #    rapiro = pickle.load(f)
         with open(C_RAPIRO_JSON,'r') as f:
             rapiro = json.loads(f.read())
     else:
@@ -320,13 +320,13 @@ def mainproc(path=None,dumpfile=None):
         unitMove(servo, ch, pos[ch])
 
     # File or tty for input commands
-    if path == '-':
+    if script == '-':
         getch = Getch(path=None)
     else:    
-        getch = Getch(path=path)
+        getch = Getch(path=make_choreo_path(script))
 
     # initial posture
-    getch.push(os.path.join(C_CHOREO_DIR,'upright'))
+    getch.push(make_choreo_path('upright'))
     
     ch = 0
     while True:
@@ -412,22 +412,22 @@ def mainproc(path=None,dumpfile=None):
             fullSwing(servo, ch, swtime, verbose=True)
 
         # c: dance with specified choreography file (nestable)
-        #   c filename [count]
+        #   c filename [repeat]
         elif c == 'c':
             choreo = getch(line=True,
                            prompt=verbose and 'type choreo file: ').strip()
             m = re.match(r'([-.\w]+)( +\d+)?',choreo)
             if not m:
-                print('usage: c choreo_file [count]')
+                print('usage: c choreo_file [repeat]')
                 continue
-            count = int(m.group(2) or '1')
+            repeat = int(m.group(2) or '1')
             choreo = m.group(1)
-            filename = os.path.join(C_CHOREO_DIR,choreo)
-            print('file='+filename+' count='+str(count))
+            filename = make_choreo_path(choreo)
+            print('file='+filename+' repeat='+str(repeat))
             if not os.path.exists(filename):
                 print('choreo file %s not exists'%choreo)
                 continue
-            for x in range(0,count): getch.push(filename)
+            for x in range(0,repeat): getch.push(filename)
 
         # p: move posture simultaneously over specified multiple channels
         #   p [-s 1000] 1:100 2:200 ... (set 'ch:pos' pairs, '=' also allowed)
@@ -440,7 +440,7 @@ def mainproc(path=None,dumpfile=None):
                 s = m.group(1)
                 period = int(s) if re.match(r'\d+$',s) else 0
                 param = param[m.end():]
-                print('-s='+str(period)+' '+str(param))
+                print('p -s='+str(period)+' '+str(param))
             pmulti = map(lambda x:map(int,re.split(r'[=:]',x)),
                          re.split(r' +',param.strip()))
             multiMove(servo, pmulti, period, verbose=verbose)
@@ -460,8 +460,8 @@ def mainproc(path=None,dumpfile=None):
             print('DISTANCE: '+str(distance))
             # extract 1, 2, ... as choreo-ID
             choreoid = int(distance/10)
-            if choreoid < 1 or 5 < choreoid: continue
-            getch.push(os.path.join(C_CHOREO_DIR,'choreo'+str(choreoid)))
+            if choreoid < 1 or 4 < choreoid: continue
+            getch.push(make_choreo_path('choreo'+str(choreoid)))
 
         # a,z: Assign physical channel settings
         elif c == 'z':
@@ -491,11 +491,12 @@ def mainproc(path=None,dumpfile=None):
             print("INVALID COMMAND:"+c)
             printhelp(verbose=False)
 
-    #with open(dumpfile or C_RAPIRO_INIT, "wb") as f:
-    #    pickle.dump(rapiro, f)
     with open(dumpfile or C_RAPIRO_JSON,'w') as f:
         f.write(json.dumps(rapiro))
  
 if __name__ == "__main__":
-    print('Usage: %s [ choreo ] [ dump ]' % os.path.basename(sys.argv[0]))
-    mainproc(*sys.argv[1:])
+    print('Type H for print help\n')
+    if len(sys.argv) <= 3:
+        mainproc(*sys.argv[1:])
+    else:
+        print('Usage: %s [ choreo | - ] [ dumpfile ]'%os.path.basename(sys.argv[0]))
