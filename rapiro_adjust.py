@@ -448,7 +448,7 @@ def mainproc(script=None,dumpfile=None):
                 s = m.group(1)
                 period = int(s) if re.match(r'\d+$',s) else 0
                 param = param[m.end():]
-                print('p -s='+str(period)+' '+str(param))
+                print('p -s '+str(period)+' '+str(param))
             pmulti = map(lambda x:map(int,re.split(r'[=:]',x)),
                          re.split(r' +',param.strip()))
             multiMove(servo, pmulti, period, verbose=verbose)
