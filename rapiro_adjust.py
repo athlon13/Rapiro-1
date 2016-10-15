@@ -339,11 +339,13 @@ def mainproc(path=None,dumpfile=None):
             break
         
         # \r, \n: skip
-        if c in ('\r','\n'): continue
+        if c in ('\r','\n'):
+            continue
         
         # #: comment out 
         if c == '#':
             getch(line=True)
+            if verbose: print('')
             continue
                 
         # y: just print message on console
