@@ -330,14 +330,28 @@ def mainproc(path=None,dumpfile=None):
         c = getch()
         verbose = not getch.mode
         #print("Input:" + str(c))
-        # q, ^C: exit from control loop
-        if c is None or c in ('\x03','q'):
+        # ^C: force exit from control loop
+        # q: close current input stream
+        if c == '\x03':
+            break
+        if c is None or c == 'q':
             if getch.close(): continue
             break
         
         # \r, \n: skip
         if c in ('\r','\n'): continue
         
+        # #: comment out 
+        if c == '#':
+            getch(line=True)
+            continue
+                
+        # y: just print message on console
+        if c == 'y':
+            print(getch(line=True,
+                        prompt=verbose and 'type message: ').strip())
+            continue
+                
         # 1-9: select channel 1-15
         if c in ('0','1','2','3','4','5','6','7','8','9'):
             if c != '1':
