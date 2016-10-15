@@ -320,7 +320,7 @@ def mainproc(script=None,dumpfile=None):
         unitMove(servo, ch, pos[ch])
 
     # File or tty for input commands
-    if script == '-':
+    if script in (None,'-'):
         getch = Getch(path=None)
     else:    
         getch = Getch(path=make_choreo_path(script))
