@@ -1,1 +1,9 @@
-c r_hand_raise
+y CHOREO: r_hand_raise
+p -s 1000 7:135 8:80 4:150 3:50 2:102
+p 9:100
+w 500
+p 9:50
+w 500
+p 9:100
+w 500
+p 9:50

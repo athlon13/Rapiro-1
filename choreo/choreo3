@@ -1,2 +1,9 @@
-c l_hand_raise
-c eyegreen
+y CHOREO: l_hand_raise
+p -s 1000 4:32 3:80 7:12 8:120 9:50
+p 2:53
+w 500
+p 2:102
+w 500
+p 2:53
+w 500
+p 2:102

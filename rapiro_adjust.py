@@ -328,16 +328,18 @@ def mainproc(script=None,dumpfile=None):
     # initial posture
     getch.push(make_choreo_path('upright'))
     
+    verboseloop = False
     ch = 0
     while True:
         c = getch()
-        verbose = not getch.mode
+        verbose = verboseloop or not getch.mode
         #print("Input:" + str(c))
         # ^C: force exit from control loop
         # q: close current input stream
         if c == '\x03':
             break
         if c is None or c == 'q':
+            verboseloop = False
             if getch.close(): continue
             break
         
@@ -349,6 +351,12 @@ def mainproc(script=None,dumpfile=None):
         if c == '#':
             getch(line=True)
             if verbose: print('')
+            continue
+                
+        # v: set verbose flag for script
+        if c == 'v':
+            v = getch(line=True,prompt=verbose and 'type 1 or 0: ').strip()
+            verboseloop = bool(int(v))
             continue
                 
         # y: just print message on console
