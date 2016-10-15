@@ -201,7 +201,7 @@ def multiMove(servo, pmulti, period, sleep=0.01, verbose=False):
             ch = xp[0]
             # cur_pos: xp[2]
             xp.append(pos[ch])
-            print(str(xp))
+            if verbose: print(str(xp))
             if limit_max[ch] < xp[2]:
                 xp[2] = limit_max[ch]
             elif limit_min[ch] > xp[2]:
@@ -324,6 +324,9 @@ def mainproc(path=None,dumpfile=None):
         getch = Getch(path=None)
     else:    
         getch = Getch(path=path)
+
+    # initial posture
+    getch.push(os.path.join(C_CHOREO_DIR,'upright'))
     
     ch = 0
     while True:
