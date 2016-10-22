@@ -24,6 +24,7 @@ import time
 from datetime import datetime
 import re
 import json
+import ssl
 
 # Import the PCA9685 module.
 import Adafruit_PCA9685
@@ -143,11 +144,11 @@ DUTY_180 = 620  # duty for 180 degree
 def unitMove(servo, ch, abs=None, rel=0, verbose=False):
     pos = servo['pos']
     phys = servo['phys']
+    adj = servo['adj']
     if abs is None: abs = pos[ch]
     abs += rel
     pos[ch] = abs
-    adj =  int((servo['max'][ch] + servo['min'][ch])/2) - 90  
-    pwm.set_pwm(phys[ch], 0, int(DUTY_0 + (abs+adj)*DUTY_180/180))
+    pwm.set_pwm(phys[ch], 0, int(DUTY_0 + (abs+adj[ch])*DUTY_180/180))
     if verbose: print('move ch:'+str(ch)+" "+str(abs))
     return abs
 
@@ -177,7 +178,7 @@ def fullSwing(servo, ch, time, verbose=False):
     cur = servo['pos'][ch]
     max = servo['max'][ch]
     min = servo['min'][ch]
-    if verbose: print('swing ch:'+str(ch)+" "+str(cur)+"=>"+str(min)+"=>"+str(max)+"=>"+str(cur))   
+    if verbose: print('swing ch:'+str(ch)+" "+str(cur)+"=>"+str(min)+"=>"+str(max)+"=>"+str(cur))
     multiMove(servo, [[ch, min]], time)
     multiMove(servo, [[ch, max]], time)
     multiMove(servo, [[ch, cur]], time)
@@ -190,9 +191,8 @@ def multiMove(servo, pmulti, period, sleep=0.01, verbose=False):
     if not period:
         for ch,p in pmulti:
             if limit_max[ch] < p: p = limit_max[ch]
-            if limit_min[ch] > p: p = limit_min[ch]   
-            adj =  int((limit_max[ch] + limit_min[ch])/2) - 90         
-            unitMove(servo, ch, p+adj, verbose=verbose)
+            if limit_min[ch] > p: p = limit_min[ch]
+            unitMove(servo, ch, p, verbose=verbose)
         time.sleep(sleep)
     else:
         basestep = int(period/(sleep*1000))
@@ -263,12 +263,12 @@ def printhelp(verbose=True):
     print('  6:head, 7:shld_r_r, 8:shld_p_r, 9:hand_r, 10:foot_y_r, 11:foot_p_r')
     print('  12:red, 13:green, 14:blue')
     print('Commands:')
-    print('  h:-10, j:-1, k:+1, l:+10, g:full swing')
+    print('  h:-10, j:-1, k:+1, l:+10, +, -: adjust pos, g:full swing')
     print('  m:set center, x:set max pos, n:set min pos')
     print('  c:load choreography file, i:revert to tty (use in file)')
     print('  p:simultaneous move of multi-channels, s:get external control')
     print('  ts,te:timer start and end, H:help, q:quit')
-    
+
     print('Choreography files:')
     (i, m) = (0, 8)
     for fn in sorted(os.listdir(C_CHOREO_DIR)):
@@ -305,14 +305,16 @@ def mainproc(script=None,dumpfile=None):
         rapiro = {"servo": {"pos": [SERVO_MIDDLE] * MAX_CH,
                             "max": [SERVO_MAX] * MAX_CH,
                             "min": [SERVO_MIN] * MAX_CH,
+                            "adj": [0] * MAX_CH,
                             "phys": range(0, MAX_CH)},
-                  "led": [{"r": 0,"g":0,"bit": 0}]}
+                  "led": [{"r": 0,"g": 0,"b": 0}]}
 
     servo = rapiro["servo"]
     led   = rapiro["led"]
     pos   = servo["pos"]
     max   = servo["max"]
     min   = servo["min"]
+    adj   = servo["adj"]
     phys  = servo["phys"]
 
     # set initial posture positions
@@ -418,6 +420,13 @@ def mainproc(script=None,dumpfile=None):
         elif c == 'g':
             swtime = 1000
             fullSwing(servo, ch, swtime, verbose=True)
+
+        elif c == '+':
+            adj[ch] += 1
+            unitMove(servo, ch)
+        elif c == '-':
+            adj[ch] -= 1
+            unitMove(servo, ch)
 
         # c: dance with specified choreography file (nestable)
         #   c filename [repeat]

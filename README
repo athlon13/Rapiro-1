@@ -6,7 +6,7 @@ Rapiroコントローラ README
   getch.py		コントロール文字の入力・スクリプトファイル読み込みライブラリ
   choreo_data.py	Rapiro基本動作振り付けのPython版データ
   choreo/*		振り付けスクリプト(choreo_data.pyを本仕様に合わせたもの)
-  tools/*		
+  tools/*
 
 ■コマンド
 ・コマンド引数の仕様が変更になっています。
@@ -20,11 +20,13 @@ Rapiroコントローラ README
     6:head, 7:shld_r_r, 8:shld_p_r, 9:hand_r, 10:foot_y_r, 11:foot_p_r
     12:red, 13:green, 14:blue
   Commands:
-    h:-10, j:-1, k:+1, l:+10, g:full swing
+    h:-10, j:-1, k:+1, l:+10,
+    +, -: adjust pos
+    g:full swing
     m:set center, x:set max pos, n:set min pos
     c:load choreography file, i:revert to tty (use in file),
     p:simultaneous move of multi-channels, t[se]:timer, H:help, q:quit
-    
+
 ・コントローラのキー仕様の拡張
   c: c filename [count]
      filenameはchoreoディレクトリ配下のコレオグラフィスクリプトファイル名を指定します。
@@ -47,8 +49,8 @@ Rapiroコントローラ README
   ts,te: ts title, te
      tsとteに囲まれた処理の実行時間を表示します。tsにはtitle文字列を指定できて、
      時間表示時にそのtitleが表示されます。
-  q: インタラクティブモードを終了します。^C も同様の動作になります。   
-  
+  q: インタラクティブモードを終了します。^C も同様の動作になります。
+
 ■Getchクラス(getch.py)
 ・インタラクティブな文字読み込みに加えて、ファイル読み込みの機能を追加し、両者を任意に
   切り替えることができるように汎用ライブラリ化しています
@@ -80,4 +82,4 @@ Rapiroコントローラ README
 ・multiMove、コマンドのchはParts Number, unitMoveのchはI2C Channel
 ・fullSwing関数：multiMoveを使用するように変更
 ・a/zコマンド：Logical/Physical channelマッピング用コマンドの追加
-
+・+, -コマンド：角度アジャストの追加
