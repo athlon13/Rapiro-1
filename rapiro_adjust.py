@@ -480,16 +480,6 @@ def mainproc(script=None,dumpfile=None):
             if choreoid < 1 or 4 < choreoid: continue
             getch.push(make_choreo_path('choreo'+str(choreoid)))
 
-        # a,z: Assign physical channel settings
-        elif c == 'z':
-            phys[ch] = (phys[ch] + 1) % len(pos)
-            if verbose: print("Phys Channel: " + str(phys[ch]))
-        elif c == 'a':
-            ph = (phys[ch] + 1) % len(pos)
-            ch = (ch + 1) % len(pos)
-            phys[ch] = ph
-            if verbose: print("Part name: " + C_PARTS_LIST[ch])
-
         # i: change command control to tty (use in choreo files)
         elif c == 'i':
             getch.push()

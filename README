@@ -45,7 +45,6 @@ Rapiroコントローラ README
      得られる結果には 'v=小数点数' 値域は[10,50] の形式の文字列が含まれるものとし、
      この数値の10の位の値(1～5までの整数値)に応じて、choreo1～choreo5のコレオグラフィ
      スクリプトが実行されます。
-  a,z: Logical/Physical channelマッピングを変更することができます。
   ts,te: ts title, te
      tsとteに囲まれた処理の実行時間を表示します。tsにはtitle文字列を指定できて、
      時間表示時にそのtitleが表示されます。
@@ -81,5 +80,4 @@ Rapiroコントローラ README
 ・multi/unitMoveのargをposからservoに変更
 ・multiMove、コマンドのchはParts Number, unitMoveのchはI2C Channel
 ・fullSwing関数：multiMoveを使用するように変更
-・a/zコマンド：Logical/Physical channelマッピング用コマンドの追加
 ・+, -コマンド：角度アジャストの追加
