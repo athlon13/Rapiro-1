@@ -25,6 +25,7 @@ from datetime import datetime
 import re
 import json
 import ssl
+import threading
 
 # Import the PCA9685 module.
 import Adafruit_PCA9685
@@ -74,7 +75,7 @@ C_RAPIRO_JSON = "rapiro.json"
 C_CHOREO_DIR = 'choreo'
 
 C_MINIMUM_SLEEP = 0.001
-
+C_MAX_CH          = 16
 ############################################################
 # External Control Feature
 
@@ -131,7 +132,24 @@ def set_servo_pulse(channel, pulse, verbose=True):
 DUTY_0 = 100    # duty for 0 degree
 DUTY_180 = 620  # duty for 180 degree
 
-def unitMove(servo, ch, abs=None, rel=0, verbose=False):
+class unitMoveThread(threading.Thread):
+    def __init__(self, servo):
+        threading.Thread.__init__(self)
+        self.servo = servo
+        print "Init unitMoveThread\n"
+    def run(self):
+        print "Starting unitMoveThread\n"
+        save_pos = [0] * C_MAX_CH
+        servo = self.servo
+        while True:
+            for ch in range(C_MAX_CH):
+                pos = servo['pos'][ch]
+                if save_pos[ch] != pos:
+                    unitMove_body(servo, ch, pos)
+                    save_pos[ch] = pos
+            time.sleep(C_MINIMUM_SLEEP)
+
+def unitMove_body(servo, ch, abs=None, rel=0, verbose=False):
     pos = servo['pos']
     phys = servo['phys']
     bias = servo['bias']
@@ -142,6 +160,12 @@ def unitMove(servo, ch, abs=None, rel=0, verbose=False):
     pwm.set_pwm(phys[ch], 0, int(DUTY_0 + (abs+bias[ch])*scale[ch]*DUTY_180/180))
     if verbose: print('move ch:'+str(ch)+" "+str(abs))
     return abs
+
+def unitMove(servo, ch, abs=None, rel=0, verbose=False):
+    pos = servo['pos']
+    if abs is None: abs = pos[ch]
+    abs += rel
+    pos[ch] = abs
 
 def smoothMove(servo, ch, pos, to_pos, sleep=0.01, verbose=False):
     pos = servo['pos']
@@ -277,29 +301,26 @@ def mainproc(script=None,dumpfile=None):
     # Initialization of Rapiro Controller
     conf = initproc()
     init_ext_control(conf['endpoint'], conf['session'])
-    
+
     # Set frequency to 60hz, good for servos.
     pwm.set_pwm_freq(60)
 
-    #printhelp()
- 
-    MAX_CH = 16
     SERVO_MIDDLE = 90
     SERVO_MAX    = 180
     SERVO_MIN    = 0
-        
+
     if dumpfile and os.path.exists(dumpfile):
         print("Loading stat: " + dumpfile)
         with open(C_RAPIRO_JSON,'r') as f:
             rapiro = json.loads(f.read())
     else:
-        rapiro = {"servo": {"pos": [SERVO_MIDDLE] * MAX_CH,
-                            "max": [SERVO_MAX] * MAX_CH,
-                            "min": [SERVO_MIN] * MAX_CH,
-                            "bias": [0]   * MAX_CH,
-                            "scale":[1.0] * MAX_CH,
-                            "name": ['']  * MAX_CH,
-                            "phys": range(0, MAX_CH)}}
+        rapiro = {"servo": {"pos": [SERVO_MIDDLE] * C_MAX_CH,
+                            "max": [SERVO_MAX] * C_MAX_CH,
+                            "min": [SERVO_MIN] * C_MAX_CH,
+                            "bias": [0]   * C_MAX_CH,
+                            "scale":[1.0] * C_MAX_CH,
+                            "name": ['']  * C_MAX_CH,
+                            "phys": range(0, C_MAX_CH)}}
 
     servo = rapiro["servo"]
     name  = servo["name"]
@@ -315,6 +336,9 @@ def mainproc(script=None,dumpfile=None):
     for i in range(0,len(name)):
         C_PARTS_TO_INDEX[name[i]] = i
         C_INDEX_TO_PARTS[i] = name[i]
+
+    unitMove_th = unitMoveThread(servo)
+    unitMove_th.start()
 
     # set initial posture positions
     for ch in range(0, len(pos)):
