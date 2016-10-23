@@ -21,11 +21,20 @@ Rapiroコントローラ README
     12:red, 13:green, 14:blue
   Commands:
     h:-10, j:-1, k:+1, l:+10,
-    +, -: adjust pos
+    +, -: adjust bias, *, /: adjust scale
     g:full swing
     m:set center, x:set max pos, n:set min pos
     c:load choreography file, i:revert to tty (use in file),
     p:simultaneous move of multi-channels, t[se]:timer, H:help, q:quit
+
+・サーボ、LEDなどの角度、輝度調整方法
+　１）数字キーで調整したいチャネルを指定します。
+　２）lkjhキーで現物の概略の動きを確認した後、角度０、輝度０に設定します。
+　　　現物が許されるレンジを外れる場合は、３）２）を繰り返して少しずつ調整します。
+　３）+-（バイアス）キーで現物が角度０、輝度０となるように調整します。
+　４）lkjhキーで角度、輝度の最大値（サーボ: 180, LED:255など）に設定します。
+　　　現物が許されるレンジを外れる場合は、５）４）を繰り返して少しずつ調整します。
+　５）*/（スケール）キーで現物が希望の最大角度、最大輝度となるように調整します。
 
 ・コントローラのキー仕様の拡張
   c: c filename [count]

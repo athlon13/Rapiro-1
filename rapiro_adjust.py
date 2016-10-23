@@ -10,8 +10,8 @@
 
 ############################################################
 # Command control feature for servo/LED
-# Author: Takashi Kojo
-# License: 
+# Author: Nobuyuki Saji, Takashi Kojo
+# License:
 ############################################################
 
 ############################################################
@@ -144,11 +144,12 @@ DUTY_180 = 620  # duty for 180 degree
 def unitMove(servo, ch, abs=None, rel=0, verbose=False):
     pos = servo['pos']
     phys = servo['phys']
-    adj = servo['adj']
+    bias = servo['bias']
+    scale = servo['scale']
     if abs is None: abs = pos[ch]
     abs += rel
     pos[ch] = abs
-    pwm.set_pwm(phys[ch], 0, int(DUTY_0 + (abs+adj[ch])*DUTY_180/180))
+    pwm.set_pwm(phys[ch], 0, int(DUTY_0 + (abs+bias[ch])*scale[ch]*DUTY_180/180))
     if verbose: print('move ch:'+str(ch)+" "+str(abs))
     return abs
 
@@ -263,7 +264,7 @@ def printhelp(verbose=True):
     print('  6:head, 7:shld_r_r, 8:shld_p_r, 9:hand_r, 10:foot_y_r, 11:foot_p_r')
     print('  12:red, 13:green, 14:blue')
     print('Commands:')
-    print('  h:-10, j:-1, k:+1, l:+10, +, -: adjust pos, g:full swing')
+    print('  h:-10, j:-1, k:+1, l:+10, +, -: bias, *, /: scale, g:full swing')
     print('  m:set center, x:set max pos, n:set min pos')
     print('  c:load choreography file, i:revert to tty (use in file)')
     print('  p:simultaneous move of multi-channels, s:get external control')
@@ -305,7 +306,8 @@ def mainproc(script=None,dumpfile=None):
         rapiro = {"servo": {"pos": [SERVO_MIDDLE] * MAX_CH,
                             "max": [SERVO_MAX] * MAX_CH,
                             "min": [SERVO_MIN] * MAX_CH,
-                            "adj": [0] * MAX_CH,
+                            "bias": [0] * MAX_CH,
+                            "scale":[1.0] * MAX_CH,
                             "phys": range(0, MAX_CH)},
                   "led": [{"r": 0,"g": 0,"b": 0}]}
 
@@ -314,7 +316,8 @@ def mainproc(script=None,dumpfile=None):
     pos   = servo["pos"]
     max   = servo["max"]
     min   = servo["min"]
-    adj   = servo["adj"]
+    bias  = servo["bias"]
+    scale = servo["scale"]
     phys  = servo["phys"]
 
     # set initial posture positions
@@ -324,12 +327,12 @@ def mainproc(script=None,dumpfile=None):
     # File or tty for input commands
     if script in (None,'-'):
         getch = Getch(path=None)
-    else:    
+    else:
         getch = Getch(path=make_choreo_path(script))
 
     # initial posture
     getch.push(make_choreo_path('upright'))
-    
+
     verboseloop = False
     ch = 0
     while True:
@@ -420,14 +423,22 @@ def mainproc(script=None,dumpfile=None):
         elif c == 'g':
             swtime = 1000
             fullSwing(servo, ch, swtime, verbose=True)
-
         elif c == '+':
-            adj[ch] += 1
+            bias[ch] += 1
+            print("bias=" + str(bias[ch]))
             unitMove(servo, ch)
         elif c == '-':
-            adj[ch] -= 1
+            bias[ch] -= 1
+            print("bias=" + str(bias[ch]))
             unitMove(servo, ch)
-
+        elif c == '*':
+            scale[ch] *= 1.01
+            print("scale=" + str(scale[ch]))
+            unitMove(servo, ch)
+        elif c == '/':
+            scale[ch] *= 0.99
+            print("scale=" + str(scale[ch]))
+            unitMove(servo, ch)
         # c: dance with specified choreography file (nestable)
         #   c filename [repeat]
         elif c == 'c':
