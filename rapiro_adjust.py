@@ -208,6 +208,21 @@ def fullSwing(servo, ch, time, verbose=False):
     multiMove(servo, [[ch, max]], time)
     multiMove(servo, [[ch, cur]], time)
 
+class multiMoveThread(threading.Thread):
+    def __init__(self, servo, pmulti, period, sleep, verbose):
+        threading.Thread.__init__(self)
+        self.servo = servo
+        self.pmulti = pmulti
+        self.period = period
+        self.sleep = sleep
+        self. verbose = verbose
+    def run(self):
+        multiMove(self.servo, self.pmulti, self.period, self.sleep, self.verbose)
+
+def multiMove_nb(servo, pmulti, period, sleep=0.01, verbose=False):
+    mvThread = multiMoveThread(servo, pmulti, period, sleep, verbose)
+    mvThread.start()
+
 def multiMove(servo, pmulti, period, sleep=0.01, verbose=False):
     pos = servo['pos']
     limit_max = servo['max']
@@ -501,7 +516,11 @@ def mainproc(script=None,dumpfile=None):
                 print('p -s '+str(period)+' '+str(param))
             pmulti = map(lambda x:map(int,re.split(r'[=:]',x)),
                          re.split(r' +',param.strip()))
-            multiMove(servo, pmulti, period, verbose=verbose)
+            nonBlock = True
+            if nonBlock:
+                multiMove_nb(servo, pmulti, period, verbose=verbose)
+            else:
+                multiMove(servo, pmulti, period, verbose=verbose)
 
         # get external control
         # 1,1,feedback:c=COMMAND;g=GROUP;s=SID;t=TIMESTAMP;v=VALUE[LOWER:UPPER]
