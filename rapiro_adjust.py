@@ -262,8 +262,7 @@ def multiMove(servo, pmulti, period=0.0, sleep=0.01, verbose=False):
             unitMove(servo, xp[0], int(round(xp[2]+xp[4])), verbose=verbose)
         if s==0:
             break
-        unit = period / s
-        time.sleep(unit)
+        time.sleep(period/step)
 
 def printhelp(verbose=True):
     if not verbose:
