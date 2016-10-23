@@ -217,82 +217,53 @@ class multiMoveThread(threading.Thread):
         self.sleep = sleep
         self. verbose = verbose
     def run(self):
-        multiMove(self.servo, self.pmulti, self.period, self.sleep, self.verbose)
+        multiMove(self.servo, self.pmulti, self.period, self.sleep)
+        self._running = False
 
 def multiMove_nb(servo, pmulti, period, sleep=0.01, verbose=False):
     mvThread = multiMoveThread(servo, pmulti, period, sleep, verbose)
     mvThread.start()
 
-def multiMove(servo, pmulti, period, sleep=0.01, verbose=False):
+def multiMove(servo, pmulti, period=0.0, sleep=0.01, verbose=False):
     pos = servo['pos']
     limit_max = servo['max']
     limit_min = servo['min']
 
-    if not period:
-        for ch,p in pmulti:
-            if limit_max[ch] < p: p = limit_max[ch]
-            if limit_min[ch] > p: p = limit_min[ch]
-            unitMove(servo, ch, p, verbose=verbose)
-        time.sleep(sleep)
-    else:
-        basestep = int(period/(sleep*1000))
-        chstep = 1 #servo_max
-        totalstep = 0
-        for xp in pmulti:
-            # xp: [ch, to_pos] + [cur_pos, delta, round_error]
-            ch = xp[0]
-            # cur_pos: xp[2]
-            xp.append(pos[ch])
-            if verbose: print(str(xp))
-            if limit_max[ch] < xp[2]:
-                xp[2] = limit_max[ch]
-            elif limit_min[ch] > xp[2]:
-                xp[2] = limit_min[ch]
-            # delta: xp[3]
-            d = xp[1] - xp[2]
-            xp.append(d)
-            chstep = max(abs(d), chstep)
-            totalstep += abs(d)
-            # round error: xp[4]
-            xp.append(0.001*(1 if xp[3]>=0 else -1))
-        # ここでステップ数を確定する。現在は稼働chの平均動作回数としている
-        # 全chの最大移動幅とベース回数(上記)の小さい方とするなどの変更が可能
-        #step = min(step, chstep)
-        step = int(totalstep/len(pmulti))
+    basestep = int(period/(sleep*1000))
+    chstep = 1 #servo_max
+    totalstep = 0
 
-        # 与えられた達成目標時間(-s period指定)に対して上記で定めたステップ数を回す
-        # １ステップ毎に処理時間を実測し、残り時間で残りステップをこなせるように
-        # 毎回sleep値を補正
-        period /= 1000.0
+    for xp in pmulti:
+        # xp: [ch, to_pos] + [cur_pos, delta, round_error]
+        ch = xp[0]
+        # cur_pos: xp[2]
+        xp.append(pos[ch])
+        if verbose: print(str(xp))
+        if limit_max[ch] < xp[2]:
+            xp[2] = limit_max[ch]
+        elif limit_min[ch] > xp[2]:
+            xp[2] = limit_min[ch]
+        # delta: xp[3]
+        d = xp[1] - xp[2]
+        xp.append(d)
+        chstep = max(abs(d), chstep)
+        totalstep += abs(d)
+        # round error: xp[4]
+        xp.append(0.001*(1 if xp[3]>=0 else -1))
+
+    step = int(totalstep/len(pmulti))
+    period /= 1000.0
+    if verbose:
         print('period=%.3f sec, step=%d'%(period,step))
-        #verbose = True
-        for s in range(step-1,-1,-1):
-            # 最新の１ステップの処理時間を計測しておく
-            utimer = time.time()
-            for xp in pmulti:
-                xp[2] += xp[3] / step
-                unitMove(servo, xp[0], int(round(xp[2]+xp[4])), verbose=verbose)
-            curr = time.time() - utimer
-            # 予定されたステップ数を終了したらループから抜ける
-            if s==0:
-                #print('Execution time error: %.3f sec'%period)
-                break
 
-            period -= curr
-            if period > 0:
-                # 残り時間が正の場合、残り時間と残りステップ数からsleep可能な時間を計算
-                unit = period / s
-                #print('step=%d, period=%.3f, curr=%.3f, unit=%.3f'%(s,period,curr,unit))
-                if unit > curr:
-                    sleep = unit - curr
-                    period -= sleep
-                    time.sleep(sleep)
-                else:
-                    # 可能sleep時間が負になってしまう場合は、最小sleepして処理を継続
-                    time.sleep(C_MINIMUM_SLEEP)
-            else:
-                # 残り時間が負(達成目標時間を超過)の場合は、最小sleepして処理を継続
-                time.sleep(C_MINIMUM_SLEEP)
+    for s in range(step-1,-1,-1):
+        for xp in pmulti:
+            xp[2] += xp[3] / step
+            unitMove(servo, xp[0], int(round(xp[2]+xp[4])), verbose=verbose)
+        if s==0:
+            break
+        unit = period / s
+        time.sleep(unit)
 
 def printhelp(verbose=True):
     if not verbose:
