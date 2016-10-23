@@ -71,16 +71,6 @@ C_RAPIRO_JSON = "rapiro.json"
 # 10: R foot yaw
 # 11: R foot pitch
 
-C_PARTS_LIST = ['foot_p_l','foot_y_l','hand_l','shld_p_l','shld_r_l',
-                'waist','head',
-                'shld_r_r','shld_p_r','hand_r','foot_y_r','foot_p_r',
-                'ch 12','ch 13','ch 14','ch 15']
-C_PARTS_TO_INDEX = {}
-C_INDEX_TO_PARTS = {}
-for i in range(0,len(C_PARTS_LIST)):
-    C_PARTS_TO_INDEX[C_PARTS_LIST[i]] = i
-    C_INDEX_TO_PARTS[i] = C_PARTS_LIST[i]
-
 C_CHOREO_DIR = 'choreo'
 
 C_MINIMUM_SLEEP = 0.001
@@ -208,7 +198,7 @@ def multiMove(servo, pmulti, period, sleep=0.01, verbose=False):
             if limit_max[ch] < xp[2]:
                 xp[2] = limit_max[ch]
             elif limit_min[ch] > xp[2]:
-                xp[2] = limit_min[ch]           
+                xp[2] = limit_min[ch]
             # delta: xp[3]
             d = xp[1] - xp[2]
             xp.append(d)
@@ -306,19 +296,27 @@ def mainproc(script=None,dumpfile=None):
         rapiro = {"servo": {"pos": [SERVO_MIDDLE] * MAX_CH,
                             "max": [SERVO_MAX] * MAX_CH,
                             "min": [SERVO_MIN] * MAX_CH,
-                            "bias": [0] * MAX_CH,
+                            "bias": [0]   * MAX_CH,
                             "scale":[1.0] * MAX_CH,
+                            "name": ['']  * MAX_CH,
                             "phys": range(0, MAX_CH)},
                   "led": [{"r": 0,"g": 0,"b": 0}]}
 
     servo = rapiro["servo"]
     led   = rapiro["led"]
+    name  = servo["name"]
     pos   = servo["pos"]
     max   = servo["max"]
     min   = servo["min"]
     bias  = servo["bias"]
     scale = servo["scale"]
     phys  = servo["phys"]
+
+    C_PARTS_TO_INDEX = {}
+    C_INDEX_TO_PARTS = {}
+    for i in range(0,len(name)):
+        C_PARTS_TO_INDEX[name[i]] = i
+        C_INDEX_TO_PARTS[i] = name[i]
 
     # set initial posture positions
     for ch in range(0, len(pos)):
@@ -380,9 +378,9 @@ def mainproc(script=None,dumpfile=None):
                     ch = int(c + c2)
                 else:
                     ch = 1
-            if verbose: print("set current channel=" + str(ch) + ": " + C_PARTS_LIST[ch])
+            if verbose: print("set current channel=" + str(ch) + ": " + name[ch])
             continue
-        
+
         # measure elapsed time and print in seconds between 'ts' and 'te'
         if c == 't':
             c2 = getch()
