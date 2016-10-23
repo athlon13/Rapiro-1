@@ -136,24 +136,32 @@ class unitMoveThread(threading.Thread):
     def __init__(self, servo):
         threading.Thread.__init__(self)
         self.servo = servo
-        print "Init unitMoveThread\n"
+
     def run(self):
-        print "Starting unitMoveThread\n"
-        save_pos = [0] * C_MAX_CH
+        save_pos   = [0] * C_MAX_CH
+        save_bias  = [0] * C_MAX_CH
+        save_scale = [0] * C_MAX_CH
         servo = self.servo
-        while True:
+        self._running = True
+        while self._running:
             for ch in range(C_MAX_CH):
                 pos = servo['pos'][ch]
-                if save_pos[ch] != pos:
-                    unitMove_body(servo, ch, pos)
-                    save_pos[ch] = pos
+                bias = servo['bias'][ch]
+                scale = servo['scale'][ch]
+                if (save_pos[ch] != pos) or \
+                   (save_bias[ch] != bias) or \
+                   (save_scale[ch] != scale):
+                    save_pos[ch] = unitMove_body(servo, ch, pos)
             time.sleep(C_MINIMUM_SLEEP)
 
+    def shutdown(self):
+        self._running = False
+
 def unitMove_body(servo, ch, abs=None, rel=0, verbose=False):
-    pos = servo['pos']
-    phys = servo['phys']
-    bias = servo['bias']
+    pos   = servo['pos']
+    bias  = servo['bias']
     scale = servo['scale']
+    phys  = servo['phys']
     if abs is None: abs = pos[ch]
     abs += rel
     pos[ch] = abs
@@ -166,6 +174,8 @@ def unitMove(servo, ch, abs=None, rel=0, verbose=False):
     if abs is None: abs = pos[ch]
     abs += rel
     pos[ch] = abs
+    if verbose: print('move ch:'+str(ch)+" "+str(abs))
+    return abs
 
 def smoothMove(servo, ch, pos, to_pos, sleep=0.01, verbose=False):
     pos = servo['pos']
@@ -529,9 +539,10 @@ def mainproc(script=None,dumpfile=None):
             print("INVALID COMMAND:"+c)
             printhelp(verbose=False)
 
+    unitMove_th.shutdown()    # end of unitMove Thread
     with open(dumpfile or C_RAPIRO_JSON,'w') as f:
         f.write(json.dumps(rapiro))
- 
+
 if __name__ == "__main__":
     print('Type H for print help\n')
     if len(sys.argv) <= 3:
