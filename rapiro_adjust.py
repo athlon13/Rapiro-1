@@ -299,11 +299,9 @@ def mainproc(script=None,dumpfile=None):
                             "bias": [0]   * MAX_CH,
                             "scale":[1.0] * MAX_CH,
                             "name": ['']  * MAX_CH,
-                            "phys": range(0, MAX_CH)},
-                  "led": [{"r": 0,"g": 0,"b": 0}]}
+                            "phys": range(0, MAX_CH)}}
 
     servo = rapiro["servo"]
-    led   = rapiro["led"]
     name  = servo["name"]
     pos   = servo["pos"]
     max   = servo["max"]
