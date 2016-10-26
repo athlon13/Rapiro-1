@@ -473,20 +473,23 @@ def mainproc(script=None,dumpfile=None):
             for x in range(0,repeat): getch.push(filename)
 
         # p: move posture simultaneously over specified multiple channels
-        #   p [-s 1000] 1:100 2:200 ... (set 'ch:pos' pairs, '=' also allowed)
+        #   p [-n] [-s 1000] 1:100 2:200 ...
+        #   (set 'ch:pos' pairs, '=' also allowed)
         elif c == 'p':
             param = getch(line=True,
                           prompt=verbose and 'type channel settings: ').strip()
-            m = re.match(r'-s *(\S+) +',param)
+            m = re.match(r'( *-n +)? *-s *(\S+) +',param)
+            nonBlock = False
             period = None
             if m:
-                s = m.group(1)
+                nonBlock = bool(m.group(1))
+                s = m.group(2)
                 period = int(s) if re.match(r'\d+$',s) else 0
                 param = param[m.end():]
-                print('p -s '+str(period)+' '+str(param))
+                print('p'+(' -n' if nonBlock else '')+
+                      ' -s '+str(period)+' '+str(param))
             pmulti = map(lambda x:map(int,re.split(r'[=:]',x)),
                          re.split(r' +',param.strip()))
-            nonBlock = True
             if nonBlock:
                 multiMove_nb(servo, pmulti, period, verbose=verbose)
             else:
