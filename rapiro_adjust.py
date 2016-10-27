@@ -229,6 +229,9 @@ def multiMove(servo, pmulti, period=0.0, sleep=0.01, verbose=False):
     limit_max = servo['max']
     limit_min = servo['min']
 
+    if sleep  == None: sleep = 0.0
+    if period == None: period = 0.0
+
     basestep = int(period/(sleep*1000))
     chstep = 1 #servo_max
     totalstep = 0
@@ -362,29 +365,29 @@ def mainproc(script=None,dumpfile=None):
             verboseloop = False
             if getch.close(): continue
             break
-        
+
         # \r, \n: skip
         if c in ('\r','\n'):
             continue
-        
-        # #: comment out 
+
+        # #: comment out
         if c == '#':
             getch(line=True)
             if verbose: print('')
             continue
-                
+
         # v: set verbose flag for script
         if c == 'v':
             v = getch(line=True,prompt=verbose and 'type 1 or 0: ').strip()
             verboseloop = bool(int(v))
             continue
-                
+
         # y: just print message on console
         if c == 'y':
             print(getch(line=True,
                         prompt=verbose and 'type message: ').strip())
             continue
-                
+
         # 1-9: select channel 1-15
         if c in ('0','1','2','3','4','5','6','7','8','9'):
             if c != '1':
